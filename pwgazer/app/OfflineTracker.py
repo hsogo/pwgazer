@@ -21,8 +21,6 @@ from ._dialogs import (DlgAskopenfilename, DlgAskyesno,
                         DlgAsksaveasfilename, DlgShowerror, DlgShowinfo)
 from ._util import load_pwgazer_config
 
-debug_mode = True
-
 ID_LOAD_MOVIE = wx.NewIdRef()
 ID_LOAD_CAL = wx.NewIdRef()
 ID_LOAD_CAMERACONFIG = wx.NewIdRef()
@@ -77,10 +75,9 @@ class CameraView(wx.StaticBitmap):
 
 
 class Offline_Tracker(wx.Frame):
-    debug = True
     NewImageEvent, EVT_NEWIMAGE = wx.lib.newevent.NewEvent()
  
-    def __init__(self, config=None, batch=False, movie=None, cal=None, output=None, iris_detector=None, overwrite=False, force_calibrationless=False):
+    def __init__(self, config=None, batch=False, movie=None, cal=None, output=None, iris_detector=None, overwrite=False, force_calibrationless=False, debug_mode=False):
         self.config = config
         self.batch_mode = batch
         self.overwrite = overwrite
@@ -88,6 +85,8 @@ class Offline_Tracker(wx.Frame):
         self.cap = None
         self.movie_frames = None
         self.movie_fps = None
+
+        self.debug_mode = True
 
         if iris_detector is None:
             raise RuntimeError('Offline_Tracker: iris_detector must be specified.')
@@ -116,9 +115,6 @@ class Offline_Tracker(wx.Frame):
         self.run_offline_recording = False
         self.render_image = True
  
-        self.calibration_sample = []
-        self.calibration_debug_data = []
-        
         self.fitting_param = None
         self.data = None
 
@@ -609,19 +605,22 @@ class Offline_Tracker(wx.Frame):
             if self.overwrite:
                 self.data = gazedata(filename, open_mode='overwrite',
                     calibrated_output=self.config.calibrated_output,
-                    calibrationless_output=self.config.calibrationless_output)
+                    calibrationless_output=self.config.calibrationless_output,
+                    debug_mode = self.debug_mode)
             else:
                 if os.path.exists(filename):
                     print('Error: output file ({}) already exists.'.format(filename))
                     self.Destroy()
                 self.data = gazedata(filename, open_mode='new',
                     calibrated_output=self.config.calibrated_output,
-                    calibrationless_output=self.config.calibrationless_output)
+                    calibrationless_output=self.config.calibrationless_output,
+                    debug_mode = self.debug_mode)
         
         else:
             self.data = gazedata(filename, open_mode=open_mode, 
                 calibrated_output=self.config.calibrated_output,
-                calibrationless_output=self.config.calibrationless_output)
+                calibrationless_output=self.config.calibrationless_output,
+                debug_mode = self.debug_mode)
             if not self.data.is_opened():
                 DlgShowerror(self, 'Error', 'Could not open datafile ({}).\nCheck filename and datafile_open_mode.'.format(filename))
         
@@ -795,6 +794,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('-o', '--output', type=str, help='output file (required for batch execution)')
     arg_parser.add_argument('--overwrite', action='store_true', help='overwrite output file (batch mode)')
     arg_parser.add_argument('--force_calibrationless', action='store_true', help='Force calibrationless output (batch mode)')
+    arg_parser.add_argument('--debug', action='store_true', help='Debug mode')
     args = arg_parser.parse_args()
 
     camera_param_file, face_model_file, iris_detector = load_pwgazer_config(conf, args)
@@ -814,6 +814,6 @@ if __name__ == '__main__':
             
     app = wx.App(False)
     offline_tracker = Offline_Tracker(conf, batch=args.batch, movie=args.movie, cal=args.cal, output=args.output,
-        iris_detector = iris_detector, overwrite=args.overwrite, force_calibrationless=args.force_calibrationless)
+        iris_detector = iris_detector, overwrite=args.overwrite, force_calibrationless=args.force_calibrationless, debug_mode=args.debug)
     app.MainLoop()
 
