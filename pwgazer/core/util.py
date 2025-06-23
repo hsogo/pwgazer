@@ -1,9 +1,5 @@
 import numpy as np
-from scipy.ndimage.filters import maximum_filter
-import wx
-import os
-import cv2
-
+import warnings
 #import numpy.ma as ma
 
 debug_mode = False
@@ -22,6 +18,9 @@ def stretch(img):
 def get_euler_angles(R):
     """
     get XYZ-Euler angle from rotation matrix.
+
+    :param R: rotation matrix
+    :return: XYZ-Euler angle
     """
     # https://www.learnopencv.com/rotation-matrix-to-euler-angles/
     
@@ -45,6 +44,9 @@ def get_euler_angles(R):
 def get_rotation_matrix(Q):
     """
     get rotation matrix from XYZ-Euler angle
+
+    :param Q: XYZ-Euler angle.
+    :return: Rotation matrix.
     """
     if hasattr(Q,'shape') and Q.shape == (3,1):
         Q = np.ravel(Q)
@@ -67,54 +69,28 @@ def get_rotation_matrix(Q):
 
     return R
 
-# transition matrix
-F = np.array([[1,0,1,0],[0,1,0,1],[0,0,1,0],[0,0,0,1]])
-
-# transition covariance
-Q = np.array([[1/4,0,1/2,0],[0,1/4,0,1/2],[1/2,0,1,0],[0,1/2,0,1]]) * (1/10)
-
-# observation matrix
-H = np.array([[1,0,0,0],[0,1,0,0]])
-
-# observation covariance
-R = np.identity(2)*47
-
-P_init = np.identity(4) * 0.0001
-X_init = np.array([500, 500, 0, 0]).T
 
 def get_float_image(im):
     minval = im.min()
     maxval = im.max()
     return (im-minval)/(maxval-minval)
 
-class KalmanFilter(object):
-    def __init__(self, F, H, Q, R, P_init, X_init):
-        self.F = F
-        self.Q = Q
-        self.H = H
-        self.R = R
-        self.P = P_init
-        self.X = X_init
-    
-    def update(self, input):
-        X_k = np.dot(self.F, self.X)
-        P_k = np.dot(np.dot(self.F, self.P), self.F.T) + self.Q
-
-        error = input-np.dot(self.H, X_k)
-        covar = np.dot(np.dot(self.H, P_k), self.H.T) + self.R
-
-        K = np.dot(P_k, np.dot(self.H.T, np.linalg.inv(covar)))
-
-        self.X = X_k + np.dot(K, error)
-        self.P = np.dot(np.identity(K.shape[0]) - np.dot(K, self.H), P_k)
-
-        return np.dot(self.H, self.X).T
 
 def get_gaze_vector(point, eye_point):
     v = point - eye_point
     return v/np.linalg.norm(v)
 
+
 def get_eye_rotation(face, eye):
+    """
+    get eye rotation from face and eye objects.
+
+    Note: the success of this function heavily depends on user-defined parameters such as eye center.
+
+    :param face: pwgazer.core.face.facedata object.
+    :param eye: pwgazer.core.eye.eyedata object.
+    :return: 2D iris vector.
+    """
     iris_center_2D = eye.iris_center/eye.image_scale + eye.image_origin
     ec = face.left_eye_center if eye.eye == 'L' else face.right_eye_center
     eye_center_3D = (np.dot(face.rotation_matrix, ec.reshape((3,1))) + face.translation_vector).reshape((3,))
@@ -140,12 +116,17 @@ def get_eye_rotation(face, eye):
 
 
 def calc_gaze_position(face, eye, screen, fitting_param, filter=None):
+    """
+    get gaze position on the screen.
+
+    """
     # normalized 2D iris center
     (nix, niy) = eye.normalize_coord(eye.iris_center)
     #(nix, niy) = get_eye_rotation(face, eye)
+
     if filter is not None:
         (nix, niy) = filter.update((nix, niy))
-    
+
     # calc 3D iris center
     if eye.eye == 'L':
         if fitting_param is None:
@@ -154,6 +135,7 @@ def calc_gaze_position(face, eye, screen, fitting_param, filter=None):
         else:
             tx = np.dot(np.array((nix, niy, 1)), fitting_param[0])
             ty = np.dot(np.array((nix, niy, 1)), fitting_param[1])
+        
         vec = np.dot(face.rotation_matrix, np.array([tx, ty, -1*(1-(tx**2+ty**2))]))
         sp = screen.get_screen_point_from_gaze_vector(vec.reshape(3), face.left_eye_camera_coord.reshape(3))
     elif eye.eye == 'R':
@@ -168,6 +150,7 @@ def calc_gaze_position(face, eye, screen, fitting_param, filter=None):
     else:
         raise ValueError('Eye must be L or R')
     return screen.convert_camera_coordinate_to_screen_coordinate(sp)
+
 
 def LM_calibration(calibration_data, screen):
     """
@@ -263,3 +246,23 @@ def calc_calibration_results(calibration_data, screen, fitting_param, filters=(N
 
 
     return(precision, accuracy, max_error, results_detail)
+
+
+
+class MA_filter(object):
+    def __init__(self, dim=2, order=3):
+        if not isinstance(dim, int) or (dim not in (2, 3, 4)):
+            raise ValueError('MA filter dim must be 2, 3 or 4.')
+        if not isinstance(order, int) or order < 2:
+            raise ValueError('MA filter order must be an integer greater than 1.')
+        self.dim = dim
+        self.order = order
+        self.buffer = np.zeros((dim, order)) * np.nan # generate NaN array
+    
+    def update(self, measurement):
+        self.buffer[:,:(self.order-1)] = self.buffer[:,-(self.order-1):]
+        self.buffer[:,-1] = measurement
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            return np.nanmean(self.buffer, axis=1)

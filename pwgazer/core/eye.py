@@ -1,35 +1,7 @@
 import numpy as np
 import cv2
-from pathlib import Path
-
-try:
-    from pykalman import KalmanFilter
-    has_KalmanFilter = True
-except:
-    has_KalmanFilter = False
 
 from .util import stretch
-
-transition_matrix = np.array(
-    [[ 1,1,0,0 ],
-     [ 0,1,0,0 ],
-     [ 0,0,1,1 ],
-     [ 0,0,0,1 ]])
-
-observation_matrix = np.array(
-    [[ 1,0,0,0 ],
-     [ 0,0,1,0 ]])
-
-transition_covariance = np.array(
-    [[0.00500, 0.01000, 0.00000, 0.00000],
-     [0.00000, 0.00500, 0.00000, 0.00000],
-     [0.00000, 0.00000, 0.00500, 0.01000],
-     [0.00000, 0.00000, 0.00000, 0.00500]])
-
-observation_covariance = np.array(
-    [[0.5, 0.0],
-     [0.0, 0.5]])
-
 
 class eyedata(object):
     """
@@ -208,56 +180,5 @@ class eyedata(object):
         #    return cv2.resize(eye_image, (int(eye_image.shape[1]*scale), int(eye_image.shape[0]*scale)), interpolation=cv2.INTER_NEAREST)
         
         return eye_image
-
-class eye_filter(object):
-    def __init__(self, measurements):
-        """
-        filter = KalmanFilter(
-            transition_matrices = transition_matrix,
-            observation_matrices = observation_matrix,
-            initial_state_mean = [
-                measurements[0,0], 0, 
-                measurements[0,1], 0],
-            em_vars = ['transition_covariance','initial_state_covariance','observation_covariance'])
-        
-        self.KF = filter.em(measurements, n_iter=5)
-        (filtered_state_mean, filtered_state_cov) = self.KF.filter(measurements)
-
-        self.x_now = filtered_state_mean[-1,:]
-        self.P_now = filtered_state_cov[-1,:]
-        """
-
-        filter = KalmanFilter(
-            transition_matrices = transition_matrix,
-            observation_matrices = observation_matrix,
-            transition_covariance = transition_covariance,
-            observation_covariance = observation_covariance,
-            initial_state_mean = [
-                measurements[0,0], 0, 
-                measurements[0,1], 0],
-            em_vars = ['initial_state_covariance']
-        )
-
-        self.KF = filter.em(measurements, n_iter=5)
-        (filtered_state_mean, filtered_state_cov) = self.KF.filter(measurements)
-
-        self.x_now = filtered_state_mean[-1,:]
-        self.P_now = filtered_state_cov[-1,:]
-        
-    
-    def filter(self, measurements):
-        return self.KF.filter(measurements)[0][:,[0,2]]
-    
-    def set_current(self, measurement):
-        self.x_now = measurement
-
-    def update(self, measurement):
-        (x_now, P_now) = self.KF.filter_update(
-            filtered_state_mean = self.x_now,
-            filtered_state_covariance = self.P_now,
-            observation = measurement)
-        self.x_now = x_now
-        self.p_now = P_now
-        return x_now[[0,2]]
 
 
