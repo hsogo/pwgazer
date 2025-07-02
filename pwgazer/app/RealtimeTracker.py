@@ -13,11 +13,10 @@ import sys
 import argparse
 
 from ..core.config import config as configuration
-from ..core.eye import eyedata, eye_filter
+from ..core.eye import eyedata
 from ..core.face import facedata, get_face_boxes, get_face_landmarks
 from ..core.screen import screen
-from ..core.data import gazedata
-from ..core.util import LM_calibration, calc_calibration_results
+from ..core.data import gazedata, calibrationdata
 from ._dialogs import DlgAskopenfilename, DlgShowerror, DlgShowinfo
 from ._util import load_pwgazer_config
 
@@ -133,12 +132,11 @@ class Tracker(wx.Frame):
         self.in_calibration = False
         self.calibrated = False
         self.render_image = True
-        
-        self.calibration_sample = []
-        self.calibration_debug_data = []
-        
+                
         self.fitting_param = None
         self.data = None
+
+        self.calibration_data = calibrationdata(screen, offline=False)
 
         self.calibration_precision = np.array([np.nan, np.nan])
         self.calibration_accuracy = np.array([np.nan, np.nan])
@@ -473,16 +471,15 @@ class Tracker(wx.Frame):
     def start_calibration(self, x1, y1, x2, y2, clear):
         self.in_calibration = True
         if clear==1:
-            self.calibration_data = []
-            self.calibration_debug_data = []
+            self.calibration_data.clear_data()
         self.calibration_sample_count = 0
         self.calibration_sample_point = (0, 0)
     
     def end_calibration(self):
         self.in_calibration = False
         
-        self.fitting_param = LM_calibration(self.calibration_data, self.screen)
-        results = calc_calibration_results(self.calibration_data, self.screen, self.fitting_param)
+        self.fitting_param = self.calibration_data.LM_calibration()
+        results = self.calibration_data.calc_results(self.fitting_param)
 
         self.calibration_precision = results[0]
         self.calibration_accuracy = results[1]
@@ -491,8 +488,7 @@ class Tracker(wx.Frame):
 
     def start_simple_calibration(self, x, y):
         self.in_calibration = True
-        self.calibration_data = []
-        self.calibration_debug_data = []
+        self.calibration_data.clear_data()
         self.calibration_sample_count = 65536
         self.calibration_sample_point = (x, y)
 
@@ -501,13 +497,7 @@ class Tracker(wx.Frame):
         self.calibration_sample_point = (x, y)
     
     def delete_CalibrationData_Subset(self, points):
-        for p in points:
-            # search p from tail of self.calibration_data
-            for idx in range(len(self.calibration_data)-1, -1, -1):
-                if (p[0] == self.calibration_data[idx][0][0]) and \
-                   (p[1] == self.calibration_data[idx][0][1]):
-                    # remove entry
-                    self.calibration_data.pop(idx)
+        self.calibration_data.remove_points(points)
 
     def start_recording(self, message):
         print('start_recording')

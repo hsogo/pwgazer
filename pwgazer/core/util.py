@@ -115,20 +115,20 @@ def get_eye_rotation(face, eye):
     return(iris_vector_norm[:2])
 
 
-def calc_gaze_position(face, eye, screen, fitting_param, filter=None):
+def calc_gaze_position(eye, rmat, eye_center, eye_norm, screen, fitting_param, filter=None):
     """
     get gaze position on the screen.
 
     """
     # normalized 2D iris center
-    (nix, niy) = eye.normalize_coord(eye.iris_center)
+    (nix, niy) = eye_norm
     #(nix, niy) = get_eye_rotation(face, eye)
 
     if filter is not None:
         (nix, niy) = filter.update((nix, niy))
 
     # calc 3D iris center
-    if eye.eye == 'L':
+    if eye == 'L':
         if fitting_param is None:
             tx = nix
             ty = niy
@@ -136,117 +136,20 @@ def calc_gaze_position(face, eye, screen, fitting_param, filter=None):
             tx = np.dot(np.array((nix, niy, 1)), fitting_param[0])
             ty = np.dot(np.array((nix, niy, 1)), fitting_param[1])
         
-        vec = np.dot(face.rotation_matrix, np.array([tx, ty, -1*(1-(tx**2+ty**2))]))
-        sp = screen.get_screen_point_from_gaze_vector(vec.reshape(3), face.left_eye_camera_coord.reshape(3))
-    elif eye.eye == 'R':
+    elif eye == 'R':
         if fitting_param is None:
             tx = nix
             ty = niy
         else:
             tx = np.dot(np.array((nix, niy, 1)), fitting_param[2])
             ty = np.dot(np.array((nix, niy, 1)), fitting_param[3])
-        vec = np.dot(face.rotation_matrix, np.array([tx, ty, -1*(1-(tx**2+ty**2))]))
-        sp = screen.get_screen_point_from_gaze_vector(vec.reshape(3), face.right_eye_camera_coord.reshape(3))
     else:
         raise ValueError('Eye must be L or R')
+
+    vec = np.dot(rmat, np.array([tx, ty, -1*(1-(tx**2+ty**2))]))
+    sp = screen.get_screen_point_from_gaze_vector(vec.reshape(3), eye_center.reshape(3))
+
     return screen.convert_camera_coordinate_to_screen_coordinate(sp)
-
-
-def LM_calibration(calibration_data, screen):
-    """
-    
-    """
-
-    s = len(calibration_data)
-    LX = np.zeros((s,1))
-    LY = np.zeros((s,1))
-    RX = np.zeros((s,1))
-    RY = np.zeros((s,1))
-    IJ_L = np.zeros((s,3))
-    IJ_R = np.zeros((s,3))
-
-    if debug_mode:
-        cal_debugdata_fp = open('offline_cal_debugdata.csv','w')
-        cal_debugdata_fp.write('face_tx,face_y,face_tz,face_rx,face_ry,face_rz,nix_l,niy_l,nix_r,niy_r,orig_sample_x,orig_sample_y,sample_x,sample_y,sample_z,vec_lx,vec_ly,vec_rx,vec_ry\n')
-    
-    for idx, (orig_sample_point, face, left_eye, right_eye) in enumerate(calibration_data):
-        # get normaized iris center
-        (nix_l, niy_l) = left_eye.normalize_coord(left_eye.iris_center)
-        (nix_r, niy_r) = right_eye.normalize_coord(right_eye.iris_center)
-        
-        # get target position in camera coordinate
-        sample_point = screen.convert_screen_points_to_camera_coordinate(orig_sample_point)
-    
-        # get gaze vecter
-        vec_l = np.dot(np.linalg.inv(face.rotation_matrix), get_gaze_vector(sample_point, face.left_eye_camera_coord.reshape(3)))
-        vec_r = np.dot(np.linalg.inv(face.rotation_matrix), get_gaze_vector(sample_point, face.right_eye_camera_coord.reshape(3)))
-        
-        LX[idx,0] = vec_l[0]
-        LY[idx,0] = vec_l[1]
-        RX[idx,0] = vec_r[0]
-        RY[idx,0] = vec_r[1]
-        
-        IJ_L[idx,:] = [nix_l, niy_l, 1.0]
-        IJ_R[idx,:] = [nix_r, niy_r, 1.0]
-
-        if debug_mode:
-            cal_debugdata_fp.write('{},{},{},'.format(*(face.translation_vector.reshape((3,)))))
-            cal_debugdata_fp.write('{},{},{},'.format(*face.euler_angles))
-            cal_debugdata_fp.write('{},{},{},{},'.format(nix_l, niy_l, nix_r, niy_r))
-            cal_debugdata_fp.write('{},{},'.format(*orig_sample_point))
-            cal_debugdata_fp.write('{},{},{},'.format(*sample_point))
-            cal_debugdata_fp.write('{},{},'.format(*vec_l))
-            cal_debugdata_fp.write('{},{}\n'.format(*vec_r))
-
-    px_L = np.dot(np.dot(np.linalg.inv(np.dot(IJ_L.T,IJ_L)),IJ_L.T), LX)
-    py_L = np.dot(np.dot(np.linalg.inv(np.dot(IJ_L.T,IJ_L)),IJ_L.T), LY)
-    px_R = np.dot(np.dot(np.linalg.inv(np.dot(IJ_R.T,IJ_R)),IJ_R.T), RX)
-    py_R = np.dot(np.dot(np.linalg.inv(np.dot(IJ_R.T,IJ_R)),IJ_R.T), RY)
-
-    fitting_param = [px_L, py_L, px_R, py_R]
-
-    if debug_mode:
-        cal_debugdata_fp.write('{},{},{}\n'.format(*px_L.reshape((3,))))
-        cal_debugdata_fp.write('{},{},{}\n'.format(*py_L.reshape((3,))))
-        cal_debugdata_fp.write('{},{},{}\n'.format(*px_R.reshape((3,))))
-        cal_debugdata_fp.write('{},{},{}\n'.format(*py_R.reshape((3,))))
-        cal_debugdata_fp.close()
-
-    return fitting_param
-
-def calc_calibration_results(calibration_data, screen, fitting_param, filters=(None, None)):
-    """
-    
-    """
-
-    error_list = np.zeros((len(calibration_data),2)) # L, R
-    eye_filter_L, eye_filter_R = filters
-    detail = []
-    for idx, (orig_sample_point, face, left_eye, right_eye) in enumerate(calibration_data):
-        x_l, y_l = calc_gaze_position(face, left_eye, screen, fitting_param, eye_filter_L)
-        x_r, y_r = calc_gaze_position(face, right_eye, screen, fitting_param, eye_filter_R)
-        error_list[idx,0] = np.sqrt((x_l - orig_sample_point[0])**2 + (y_l - orig_sample_point[1])**2)
-        error_list[idx,1] = np.sqrt((x_r - orig_sample_point[0])**2 + (y_r - orig_sample_point[1])**2)
-        detail.append('{:.0f},{:.0f},{:.0f},{:.0f},{:.0f},{:.0f}'.format(
-            orig_sample_point[0],
-            orig_sample_point[1],
-            x_l, y_l, x_r, y_r))
-
-    precision = error_list.mean(axis=0)
-    accuracy = error_list.std(axis=0)
-    max_error = error_list.max(axis=0)
-    results_detail = ','.join(detail)
-
-    if debug_mode:
-        cal_debugdata_fp = open('offline_cal_debugdata.csv','a')
-        cal_debugdata_fp.write('{},{},'.format(*precision))
-        cal_debugdata_fp.write('{},{},'.format(*accuracy,))
-        cal_debugdata_fp.write('{},{}\n'.format(*max_error))
-        cal_debugdata_fp.close()
-
-
-    return(precision, accuracy, max_error, results_detail)
-
 
 
 class MA_filter(object):

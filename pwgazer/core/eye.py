@@ -83,7 +83,7 @@ class eyedata(object):
         self.eyelid_points = np.vstack((self.eyelid_ends, self.eyelid_top, self.eyelid_bottom))
         
         self.eye_aspect_ratio = self.get_eye_aspect_ratio()
-        self.iris_detector(self)
+        self.iris_detector(self)  # "self" is necessary because iris_detector is not the method of this class.
         self.blink_detector()
 
         self.detected = True

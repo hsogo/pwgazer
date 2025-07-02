@@ -19,15 +19,14 @@ from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg, NavigationToolb
 import traceback
 
 from ..core.config import config as configuration
-from ..core.eye import eye_filter, eyedata
+from ..core.eye import eyedata
 from ..core.face import facedata, get_face_boxes, get_face_landmarks
 from ..core.screen import screen
-from ..core.util import LM_calibration, calc_calibration_results, calc_gaze_position
+from ..core.util import calc_gaze_position
+from ..core.data import calibrationdata
 from ._dialogs import (DlgAskopenfilename, DlgAsksaveasfilename, DlgAskyesno,
                         DlgShowerror, DlgShowinfo)
 from ._util import load_pwgazer_config
-
-debug_mode = False
 
 def str2points(s):
     p = np.array(tuple(map(float,s[1:-1].split(','))))
@@ -279,7 +278,6 @@ class gazeDetectionDialog(wx.Dialog):
     def calibration_loop(self):
         cap = cv2.VideoCapture(self.parent.moviefile)
         raw_gaze = []
-        face_eye_data = []
         face_rvec = None
         face_tvec = None
 
@@ -354,26 +352,27 @@ class gazeDetectionDialog(wx.Dialog):
                 right_eye = None
             else:
                 if not left_eye.blink:
-                    xL, yL = calc_gaze_position(face, left_eye, self.parent.screen, fitting_param=None, filter=None)
+                    xL, yL = calc_gaze_position('L', face.rotation_matrix, face.left_eye_camera_coord, 
+                                                left_eye.normalize_coord(left_eye.iris_center), self.parent.screen, None, None)
                 else:
                     xL, yL = (np.nan, np.nan)
                 if not right_eye.blink:
-                    xR, yR = calc_gaze_position(face, right_eye, self.parent.screen, fitting_param=None, filter=None)
+                    xR, yR = calc_gaze_position('R', face.rotation_matrix, face.right_eye_camera_coord, 
+                                                right_eye.normalize_coord(right_eye.iris_center), self.parent.screen, None, None)
                 else:
                     xR, yR = (np.nan, np.nan)
                 raw_gaze.append((current_frame, current_frame/self.parent.movie_fps, xL, yL, xR, yR))
 
-            face_eye_data.append((face, left_eye, right_eye))
+            self.parent.calibration_data.add_raw_data(face, left_eye, right_eye)
 
         self.raw_gaze = np.array(raw_gaze)
-        self.face_eye_data = face_eye_data
         self.running = False
         wx.CallAfter(self.Close)
 
     
         
 class calibrationResultsDialog(wx.Dialog):
-    def __init__(self, parent, calibration_data, id=wx.ID_ANY):
+    def __init__(self, parent, id=wx.ID_ANY):
         super(calibrationResultsDialog, self).__init__(parent=parent, id=id, title='')
         self.parent = parent
 
@@ -405,14 +404,14 @@ class calibrationResultsDialog(wx.Dialog):
         self.SetSizer(mainsizer)
         self.Fit()
 
-        if len(calibration_data) == 0:
+        if parent.calibration_data.is_empty():
             DlgShowerror(self, 'Error', 'No calibration data.')
             wx.CallAfter(self.Close)
             return
 
         # run fitting
-        fitting_param = LM_calibration(calibration_data, self.parent.screen)
-        results = calc_calibration_results(calibration_data, self.parent.screen, fitting_param)
+        fitting_param = parent.calibration_data.LM_calibration()
+        results = parent.calibration_data.calc_results(fitting_param)
 
         # draw results
         canvas = np.zeros((self.parent.camera_view_height,self.parent.camera_view_width,3),dtype=np.uint8)
@@ -553,9 +552,6 @@ class offline_calibration_app(wx.Frame):
         self.camera_view_height = 340
         self.camera_view_scale = 1.0
 
-        self.raw_gaze = None
-        self.face_eye_data = None
-
         self.camera_matrix = config.camera_matrix
         self.downscaling_factor = config.downscaling_factor
 
@@ -579,6 +575,9 @@ class offline_calibration_app(wx.Frame):
         self.area_of_interest =  None
         self.updating_aoi = False
         self.aoi_p0 = None
+
+        self.raw_gaze = None
+        self.calibration_data = calibrationdata(self.screen)
 
         ### Menu ###
         self.menu_bar = wx.MenuBar()
@@ -915,8 +914,10 @@ class offline_calibration_app(wx.Frame):
 
             self.status_movie_filename.SetLabel(filename)
 
+            # initialize calibration data
             self.raw_gaze = None
-            self.face_eye_data = None
+            self.calibration_data.clear_data()
+            self.calibration_data.clear_raw_data()
 
         else:
             if self.batch_mode:
@@ -1132,7 +1133,6 @@ class offline_calibration_app(wx.Frame):
             if dlg.thread.is_alive():
                 dlg.running = False
             self.raw_gaze = dlg.raw_gaze
-            self.face_eye_data = dlg.face_eye_data
             dlg.Destroy()
         
         # skip gaze results dialog in batch mode
@@ -1148,12 +1148,9 @@ class offline_calibration_app(wx.Frame):
             uidx = int(self.calpoint_listbox.GetItem(calpoint_idx, 1).GetText())
             calibration_sample_point = str2points(self.calpoint_listbox.GetItem(calpoint_idx, 2).GetText())
 
-            for i in range(fidx, uidx):
-                face, leye, reye = self.face_eye_data[i]
-                if (face is not None) and (not leye.blink) and (not reye.blink):
-                    calibration_data.append((calibration_sample_point, face, leye, reye))
+            self.calibration_data.add_caldata_from_raw(calibration_sample_point, list(range(fidx, uidx)))
 
-        dlg = calibrationResultsDialog(parent=self, calibration_data=calibration_data)
+        dlg = calibrationResultsDialog(parent=self)
         if not self.batch_mode:
             dlg.ShowModal()
             dlg.Destroy()

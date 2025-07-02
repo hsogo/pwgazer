@@ -14,7 +14,7 @@ import wx.lib.newevent
 
 from ..core.config import config as configuration
 from ..core.data import gazedata
-from ..core.eye import eye_filter, eyedata
+from ..core.eye import eyedata
 from ..core.face import facedata, get_face_boxes, get_face_landmarks
 from ..core.screen import screen
 from ._dialogs import (DlgAskopenfilename, DlgAskyesno,
