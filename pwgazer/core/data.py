@@ -65,19 +65,19 @@ class gazedata(object):
         # TODO insert saccade-related information
 
 
-    def append_data(self, t, face, left_eye, right_eye, screen, fitting_param, filterL, filterR):
+    def append_data(self, t, face, left_eye, right_eye, screen, fitting_param):
         data = (t,)
 
         if self.calibrated_output:
             if not left_eye.blink:
                 xL, yL = calc_gaze_position('L', face.rotation_matrix, face.left_eye_camera_coord, 
-                                            left_eye.normalize_coord(left_eye.iris_center), screen, fitting_param, None)
+                                            left_eye.normalized_iris_center, screen, fitting_param, None)
             else:
                 xL = yL = np.nan
 
             if not right_eye.blink:
                 xR, yR = calc_gaze_position('R', face.rotation_matrix, face.right_eye_camera_coord, 
-                                            right_eye.normalize_coord(right_eye.iris_center), screen, fitting_param, None)
+                                            right_eye.normalized_iris_center, screen, fitting_param, None)
             else:
                 xR = yR = np.nan
 
@@ -86,13 +86,13 @@ class gazedata(object):
         if self.calibrationless_output:
             if not left_eye.blink:
                 xL, yL = calc_gaze_position('L', face.rotation_matrix, face.left_eye_camera_coord, 
-                                            left_eye.normalize_coord(left_eye.iris_center), screen, None, None)
+                                            left_eye.normalized_iris_center, screen, None, None)
             else:
                 xL, yL = (np.nan, np.nan)
 
             if not right_eye.blink:
                 xR, yR = calc_gaze_position('R', face.rotation_matrix, face.right_eye_camera_coord, 
-                                            right_eye.normalize_coord(right_eye.iris_center), screen, None, None)
+                                            right_eye.normalized_iris_center, screen, None, None)
             else:
                 xR, yR = (np.nan, np.nan)
 
@@ -105,11 +105,11 @@ class gazedata(object):
 
         if self.debug_mode:
             try:
-                nlx, nly = left_eye.normalize_coord(left_eye.iris_center)
+                nlx, nly = left_eye.normalized_iris_center
             except:
                 nlx, nly = (np.nan, np.nan)
             try:
-                nrx, nry = right_eye.normalize_coord(right_eye.iris_center)
+                nrx, nry = right_eye.normalized_iris_center
             except:
                 nrx, nry = (np.nan, np.nan)
 
@@ -179,7 +179,7 @@ class gazedata(object):
 
 
 class calibrationdata(object):
-    def __init__(self, screen, offline=True, debug_mode=False):
+    def __init__(self, screen, offline=True, debug_mode=True):
         self.offline = offline
         self.screen = screen
         self.raw_data = []
@@ -195,8 +195,8 @@ class calibrationdata(object):
         euler = face.euler_angles if face is not None else None
         leye_center = face.left_eye_camera_coord if face is not None else None
         reye_center = face.right_eye_camera_coord if face is not None else None
-        leye_norm = leye.normalize_coord(leye.iris_center) if not leye.blink else None
-        reye_norm = reye.normalize_coord(reye.iris_center) if not reye.blink else None
+        leye_norm = leye.normalized_iris_center if not leye.blink else None
+        reye_norm = reye.normalized_iris_center if not reye.blink else None
 
         self.raw_data.append((
             rvec, tvec, rmat, euler, leye_center, reye_center,
@@ -224,9 +224,9 @@ class calibrationdata(object):
             calpoint, # 
             face.rotation_vector, face.translation_vector,
             face.rotation_matrix, face.euler_angles,
-            face.left_eye_camera_cood, face.right_eye_camera_coord,
-            leye.normalize_coord(leye.iris_center),
-            reye.normalize_coord(reye.iris_center)
+            face.left_eye_camera_coord, face.right_eye_camera_coord,
+            leye.normalized_iris_center,
+            reye.normalized_iris_center
         ))
 
     def remove_points(self, points):
@@ -286,7 +286,7 @@ class calibrationdata(object):
             IJ_R[idx,:] = [nix_r, niy_r, 1.0]
 
             if self.debug_mode:
-                cal_debugdata_fp.write('{},{},{},'.format(*tvec))
+                cal_debugdata_fp.write('{},{},{},'.format(*tvec.reshape((3,))))
                 cal_debugdata_fp.write('{},{},{},'.format(*euler))
                 cal_debugdata_fp.write('{},{},{},{},'.format(nix_l, niy_l, nix_r, niy_r))
                 cal_debugdata_fp.write('{},{},'.format(*orig_point))
@@ -336,6 +336,8 @@ class calibrationdata(object):
             cal_debugdata_fp.write('{},{},'.format(*precision))
             cal_debugdata_fp.write('{},{},'.format(*accuracy,))
             cal_debugdata_fp.write('{},{}\n'.format(*max_error))
+            for i in range(len(detail)):
+                cal_debugdata_fp.write('{}\n'.format(detail[i]))
             cal_debugdata_fp.close()
 
         return(precision, accuracy, max_error, results_detail)

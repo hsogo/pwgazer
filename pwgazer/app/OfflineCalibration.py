@@ -22,7 +22,7 @@ from ..core.config import config as configuration
 from ..core.eye import eyedata
 from ..core.face import facedata, get_face_boxes, get_face_landmarks
 from ..core.screen import screen
-from ..core.util import calc_gaze_position
+from ..core.util import calc_gaze_position, MA_filter
 from ..core.data import calibrationdata
 from ._dialogs import (DlgAskopenfilename, DlgAsksaveasfilename, DlgAskyesno,
                         DlgShowerror, DlgShowinfo)
@@ -281,6 +281,17 @@ class gazeDetectionDialog(wx.Dialog):
         face_rvec = None
         face_tvec = None
 
+        """
+        filter_face_rot = MA_filter(dim=3, order=9)
+        filter_face_tr = MA_filter(dim=3, order=9)
+        filter_iris_l = MA_filter(dim=2, order=9)
+        filter_iris_r = MA_filter(dim=2, order=9)
+        """
+        filter_face_rot = None
+        filter_face_tr = None
+        filter_iris_l = None
+        filter_iris_r = None
+
         cap.set(cv2.CAP_PROP_POS_FRAMES,0)
 
         for current_frame in range(self.parent.movie_frames):
@@ -319,11 +330,11 @@ class gazeDetectionDialog(wx.Dialog):
                 
                 # create facedata
                 face = facedata(landmarks, camera_matrix=self.parent.camera_matrix, face_model=self.parent.face_model,
-                    eye_params=self.parent.eye_params, prev_rvec=face_rvec, prev_tvec=face_tvec)
+                    eye_params=self.parent.eye_params, prev_vec=(face_rvec, face_tvec), filter=(filter_face_rot, filter_face_tr))
 
                 # create eyedata
-                left_eye = eyedata(frame_mono, landmarks, eye='L', iris_detector=self.parent.iris_detector)
-                right_eye = eyedata(frame_mono, landmarks, eye='R', iris_detector=self.parent.iris_detector)
+                left_eye = eyedata(frame_mono, landmarks, eye='L', iris_detector=self.parent.iris_detector, filter=filter_iris_l)
+                right_eye = eyedata(frame_mono, landmarks, eye='R', iris_detector=self.parent.iris_detector, filter=filter_iris_r)
 
                 if not (left_eye.detected and right_eye.detected):
                     # Eyes are too close to the edges of the image
@@ -353,12 +364,12 @@ class gazeDetectionDialog(wx.Dialog):
             else:
                 if not left_eye.blink:
                     xL, yL = calc_gaze_position('L', face.rotation_matrix, face.left_eye_camera_coord, 
-                                                left_eye.normalize_coord(left_eye.iris_center), self.parent.screen, None, None)
+                                                left_eye.normalized_iris_center, self.parent.screen, None, None)
                 else:
                     xL, yL = (np.nan, np.nan)
                 if not right_eye.blink:
                     xR, yR = calc_gaze_position('R', face.rotation_matrix, face.right_eye_camera_coord, 
-                                                right_eye.normalize_coord(right_eye.iris_center), self.parent.screen, None, None)
+                                                right_eye.normalized_iris_center, self.parent.screen, None, None)
                 else:
                     xR, yR = (np.nan, np.nan)
                 raw_gaze.append((current_frame, current_frame/self.parent.movie_fps, xL, yL, xR, yR))
@@ -386,7 +397,7 @@ class calibrationResultsDialog(wx.Dialog):
 
         self.buttonpanel = wx.Panel(self,wx.ID_ANY)
         self.message_text = wx.StaticText(self.buttonpanel,wx.ID_ANY,'-/- calibration points  -/- frames          ')
-        self.button_save = wx.Button(self.buttonpanel,wx.ID_ANY,"Save and Close")
+        self.button_save = wx.Button(self.buttonpanel,wx.ID_ANY,"Save")
         self.button_cancel = wx.Button(self.buttonpanel,wx.ID_CANCEL,"Close")
         sizer = wx.BoxSizer(wx.HORIZONTAL)
         sizer.Add(self.message_text,0,wx.RIGHT, 10)

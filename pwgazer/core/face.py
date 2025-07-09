@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import dlib
 from pathlib import Path
-from .util import get_euler_angles
+from .util import get_euler_angles, get_rotation_matrix
 # from pykalman import KalmanFilter
 
 facedetection_engines = ['dlib_hog']
@@ -120,7 +120,7 @@ class facedata(object):
                              )
     dist_coeffs = np.zeros((4,1)) # no lens distortion
     
-    def __init__(self, landmarks, camera_matrix=None, dist_coeffs=None, face_model=None, eye_params=None, prev_rvec=None, prev_tvec=None):
+    def __init__(self, landmarks, camera_matrix=None, dist_coeffs=None, face_model=None, eye_params=None, prev_vec=(None, None), filter=(None, None)):
         """
         Initialize face model.
 
@@ -134,6 +134,11 @@ class facedata(object):
             face_model = default_face_model
         if eye_params is None:
             eye_params = default_eye_params
+
+        prev_rvec = prev_vec[0]
+        prev_tvec = prev_vec[1]
+        filter_rot = filter[0]
+        filter_tr = filter[1]
 
         # set landmarks
         self.landmarks = landmarks
@@ -172,13 +177,24 @@ class facedata(object):
         else:
             self.translation_vector = np.array((0.0,0.0,600.0)).reshape((3,1))
 
-        self.get_rotation_matrix()
+        self.estimate_face_posture()
         self.euler_angles = get_euler_angles(self.rotation_matrix)
+
+        if filter_rot is not None:
+            self.euler_angles = filter_rot.update(self.euler_angles)
+            # update rotation matrix ()
+            self.rotation_matrix = get_rotation_matrix(self.euler_angles)
+        if filter_tr is not None:
+            self.translation_vector = filter_tr.update(self.translation_vector)
+
         self.rotX, self.rotY, self.rotZ = self.euler_angles
+
+        self.calc_marker_2D()
+        self.get_eye_center()
     
-    def get_rotation_matrix(self):
+    def estimate_face_posture(self):
         """
-        Calculate rotation matrix of face
+        Calculate rotation matrix and translation vector of the face
         """
         # get rotation vector and translation vector
         (_, self.rotation_vector, self.translation_vector, _) = cv2.solvePnPRansac(
@@ -190,13 +206,15 @@ class facedata(object):
         self.rotation_matrix, _ = cv2.Rodrigues(self.rotation_vector)
         self.projection_matrix = np.hstack((self.rotation_matrix, self.translation_vector))
         
+    def calc_marker_2D(self):
         # calculate marker points to draw face direction vector
         (nose_end_point2D, _) = cv2.projectPoints(
-            np.array([(0.0, 0.0, -100.0)]), self.rotation_vector, self.translation_vector, self.camera_matrix, self.dist_coeffs)
+            np.array([(0.0, 0.0, -50.0)]), self.rotation_vector, self.translation_vector, self.camera_matrix, self.dist_coeffs)
         
         self.marker_p1 = (int(self.fitting_pts[0][0]), int(self.fitting_pts[0][1]))
         self.marker_p2 = (int(nose_end_point2D[0][0][0]), int(nose_end_point2D[0][0][1]))
-         
+
+    def get_eye_center(self):
         self.left_eye_camera_coord = np.dot(self.rotation_matrix, self.left_eye_center.reshape(3,1)) + self.translation_vector
         self.right_eye_camera_coord = np.dot(self.rotation_matrix, self.right_eye_center.reshape(3,1)) + self.translation_vector
 
@@ -239,16 +257,3 @@ class facedata(object):
     def get_distance_between_eyes(self):
         return np.linalg.norm(self.left_eye_center - self.right_eye_center)
 
-
-"""
-class face_filter(object):
-    def __init__(self, measurements):
-        self.filter = KalmanFilter(
-            transition_matrices = transition_matrix,
-            observation_matrices = observation_matrix,
-            initial_state_mean = measurements[0,],
-            em_vars = ['transition_covariance','initial_state_covariance','observation_covariance'])
-
-    def update(self, observation):
-        pass
-"""

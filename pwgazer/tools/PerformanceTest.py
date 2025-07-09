@@ -100,12 +100,12 @@ if __name__ == '__main__':
 
             # normalized cood
             if not left_eye.blink:
-                line += '{},{},'.format(*left_eye.normalize_coord(left_eye.iris_center)) # nLX, nLY
+                line += '{},{},'.format(*left_eye.normalized_iris_center) # nLX, nLY
                 #line += '{},{},'.format(*get_eye_rotation(face, left_eye))
             else:
                 line += ',,'
             if not right_eye.blink:
-                line += '{},{},'.format(*right_eye.normalize_coord(right_eye.iris_center)) # nRX, nRY
+                line += '{},{},'.format(*right_eye.normalized_iris_center) # nRX, nRY
                 #line += '{},{},'.format(*get_eye_rotation(face, right_eye))
             else:
                 line += ',,'

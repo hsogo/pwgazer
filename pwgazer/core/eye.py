@@ -26,7 +26,7 @@ class eyedata(object):
     detected = False
     """
 
-    def __init__(self, orig_img, landmarks, eye, margin=0.3, blink_threshold=0.1, image_width=256, iris_detector=None):
+    def __init__(self, orig_img, landmarks, eye, margin=0.3, blink_threshold=0.1, image_width=256, iris_detector=None, filter=None):
         if iris_detector is None:
             raise RuntimeError('iris_detector must be specified.')
         self.iris_detector = iris_detector
@@ -84,6 +84,14 @@ class eyedata(object):
         
         self.eye_aspect_ratio = self.get_eye_aspect_ratio()
         self.iris_detector(self)  # "self" is necessary because iris_detector is not the method of this class.
+
+        if self.iris_center is not None:
+            self.normalized_iris_center = self.normalize_coord(self.iris_center)
+        else:
+            self.normalized_iris_center = None
+        if filter is not None:
+            self.normalized_iris_center = filter.update(self.normalized_iris_center)
+
         self.blink_detector()
 
         self.detected = True

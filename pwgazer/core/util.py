@@ -163,9 +163,18 @@ class MA_filter(object):
         self.buffer = np.zeros((dim, order)) * np.nan # generate NaN array
     
     def update(self, measurement):
+        if hasattr(measurement, 'shape') and measurement.shape != (self.dim,):
+            orig_shape = measurement.shape
+            measurement = measurement.reshape((self.dim,))
+        else:
+            orig_shape = None
+
         self.buffer[:,:(self.order-1)] = self.buffer[:,-(self.order-1):]
         self.buffer[:,-1] = measurement
 
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
-            return np.nanmean(self.buffer, axis=1)
+            if orig_shape is None:
+                return np.nanmean(self.buffer, axis=1)
+            else:
+                return np.nanmean(self.buffer, axis=1).reshape(orig_shape)

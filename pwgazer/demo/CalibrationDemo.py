@@ -9,13 +9,13 @@ import sys
 if __name__ == '__main__':
     dlg = psychopy.gui.Dlg(title='pwgazer calibration demo')
     dlg.addText('Screen (PsychoPy monitor name takes precedence over Screen resolution/width)')
-    dlg.addField(0, label='Screen resolution(comma-separated)',initial='1920,1080')
-    dlg.addField(1, label='Screen width(cm)',initial=51.8)
-    dlg.addField(2, label='PsychoPy Monitor name',initial='')
-    dlg.addField(3, label='Full Scrren mode',choices=[True,False])
-    dlg.addField(4, label='Filename',initial='cal_stim_data.csv')
-    dlg.addField(5, label='Moving average (>2)',initial=5)
-    dlg.addField(6, label='Jump every... (frames, >20)',initial=30)
+    dlg.addField(label='Screen resolution(comma-separated)',initial='1920,1080')
+    dlg.addField(label='Screen width(cm)',initial=51.8)
+    dlg.addField(label='PsychoPy Monitor name',initial='')
+    dlg.addField(label='Full Scrren mode',choices=[True,False])
+    dlg.addField(label='Filename',initial='cal_stim_data.csv')
+    dlg.addField(label='Moving average (>2)',initial=5)
+    dlg.addField(label='Jump every... (frames, >20)',initial=30)
     params = dlg.show()
     if dlg.OK:
         if params[2] == '': # monitor name is not specified

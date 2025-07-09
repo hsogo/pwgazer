@@ -17,6 +17,7 @@ from ..core.eye import eyedata
 from ..core.face import facedata, get_face_boxes, get_face_landmarks
 from ..core.screen import screen
 from ..core.data import gazedata, calibrationdata
+from ..core.util import MA_filter
 from ._dialogs import DlgAskopenfilename, DlgShowerror, DlgShowinfo
 from ._util import load_pwgazer_config
 
@@ -123,10 +124,20 @@ class Tracker(wx.Frame):
         self.face_model = config.face_model
         self.eye_params = config.eye_params
 
-        self.eye_filter_L = None
-        self.eye_filter_R = None
         self.face_rvec = None
         self.face_tvec = None
+
+        self.filter_iris_l = MA_filter(dim=2, order=9)
+        self.filter_iris_r = MA_filter(dim=2, order=9)
+        self.filter_face_tr = MA_filter(dim=3, order=9)
+        self.filter_face_rot = MA_filter(dim=3, order=9)
+        """
+        self.filter_iris_l = None
+        self.filter_iris_r = None
+        self.filter_face_tr = None
+        self.filter_face_rot = None
+        """
+
 
         self.in_recording = False
         self.in_calibration = False
@@ -136,7 +147,7 @@ class Tracker(wx.Frame):
         self.fitting_param = None
         self.data = None
 
-        self.calibration_data = calibrationdata(screen, offline=False)
+        self.calibration_data = calibrationdata(self.screen, offline=False)
 
         self.calibration_precision = np.array([np.nan, np.nan])
         self.calibration_accuracy = np.array([np.nan, np.nan])
@@ -591,11 +602,11 @@ class Tracker(wx.Frame):
                     
                     # create facedata
                     face = facedata(landmarks, camera_matrix=self.camera_matrix, face_model=self.face_model,
-                        eye_params=self.eye_params, prev_rvec=self.face_rvec, prev_tvec=self.face_tvec)
+                        eye_params=self.eye_params, prev_vec=(self.face_rvec, self.face_tvec), filter=(self.filter_face_rot, self.filter_face_tr))
 
                     # create eyedata
-                    left_eye = eyedata(frame_mono, landmarks, eye='L', iris_detector=self.iris_detector)
-                    right_eye = eyedata(frame_mono, landmarks, eye='R', iris_detector=self.iris_detector)
+                    left_eye = eyedata(frame_mono, landmarks, eye='L', iris_detector=self.iris_detector, filter=self.filter_iris_l)
+                    right_eye = eyedata(frame_mono, landmarks, eye='R', iris_detector=self.iris_detector, filter=self.filter_iris_r)
 
                     if not (left_eye.detected and right_eye.detected):
                         # Eyes are too close to the edges of the image
@@ -614,14 +625,14 @@ class Tracker(wx.Frame):
                 if self.in_calibration:
                     if self.calibration_sample_count > 0 and detect_face and (not left_eye.blink) and (not right_eye.blink):
                         
-                        self.calibration_data.append((self.calibration_sample_point, face, left_eye, right_eye))
+                        self.calibration_data.add_caldata(self.calibration_sample_point, face, left_eye, right_eye)
                         self.calibration_sample_count -= 1
                 
                 # during recording
                 elif self.in_recording and detect_face:
                     # convert sec -> ms
                     t = 1000* (capture_time - self.rec_start_time)
-                    self.data.append_data(t, face, left_eye, right_eye, self.screen, self.fitting_param, self.eye_filter_L, self.eye_filter_R)
+                    self.data.append_data(t, face, left_eye, right_eye, self.screen, self.fitting_param)
 
                 # neither calibration nor recording
                 else:

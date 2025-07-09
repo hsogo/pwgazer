@@ -17,6 +17,7 @@ from ..core.data import gazedata
 from ..core.eye import eyedata
 from ..core.face import facedata, get_face_boxes, get_face_landmarks
 from ..core.screen import screen
+from ..core.util import MA_filter
 from ._dialogs import (DlgAskopenfilename, DlgAskyesno,
                         DlgAsksaveasfilename, DlgShowerror, DlgShowinfo)
 from ._util import load_pwgazer_config
@@ -102,8 +103,17 @@ class Offline_Tracker(wx.Frame):
         self.face_model = config.face_model
         self.eye_params = config.eye_params
 
-        self.eye_filter_L = None
-        self.eye_filter_R = None
+        """"
+        self.filter_iris_l = MA_filter(dim=2, order=9)
+        self.filter_iris_r = MA_filter(dim=2, order=9)
+        self.filter_face_tr = MA_filter(dim=3, order=9)
+        self.filter_face_rot = MA_filter(dim=3, order=9)
+        """
+        self.filter_iris_l = None
+        self.filter_iris_r = None
+        self.filter_face_tr = None
+        self.filter_face_rot = None
+
         self.face_rvec = None
         self.face_tvec = None
 
@@ -700,11 +710,11 @@ class Offline_Tracker(wx.Frame):
                     
                     # create facedata
                     face = facedata(landmarks, camera_matrix=self.camera_matrix, face_model=self.face_model,
-                        eye_params=self.eye_params, prev_rvec=self.face_rvec, prev_tvec=self.face_tvec)
+                        eye_params=self.eye_params, prev_vec=(self.face_rvec, self.face_tvec), filter=(self.filter_face_rot, self.filter_face_tr))
 
                     # create eyedata
-                    left_eye = eyedata(frame_mono, landmarks, eye='L', iris_detector=self.iris_detector)
-                    right_eye = eyedata(frame_mono, landmarks, eye='R', iris_detector=self.iris_detector)
+                    left_eye = eyedata(frame_mono, landmarks, eye='L', iris_detector=self.iris_detector, filter=self.filter_iris_l)
+                    right_eye = eyedata(frame_mono, landmarks, eye='R', iris_detector=self.iris_detector, filter=self.filter_iris_r)
 
                     if not (left_eye.detected and right_eye.detected):
                         # Eyes are too close to the edges of the image
@@ -721,7 +731,7 @@ class Offline_Tracker(wx.Frame):
                 
                 if detect_face:
                     if self.data is not None:
-                        self.data.append_data(self.capture_time, face, left_eye, right_eye, self.screen, self.fitting_param, self.eye_filter_L, self.eye_filter_R)
+                        self.data.append_data(self.capture_time, face, left_eye, right_eye, self.screen, self.fitting_param)
 
                 else:
                     pass
