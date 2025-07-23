@@ -22,7 +22,7 @@ from ..core.config import config as configuration
 from ..core.eye import eyedata
 from ..core.face import facedata, get_face_boxes, get_face_landmarks
 from ..core.screen import screen
-from ..core.util import calc_gaze_position, MA_filter
+from ..core.util import calc_gaze_position, get_filter
 from ..core.data import calibrationdata
 from ._dialogs import (DlgAskopenfilename, DlgAsksaveasfilename, DlgAskyesno,
                         DlgShowerror, DlgShowinfo)
@@ -281,16 +281,11 @@ class gazeDetectionDialog(wx.Dialog):
         face_rvec = None
         face_tvec = None
 
-        """
-        filter_face_rot = MA_filter(dim=3, order=9)
-        filter_face_tr = MA_filter(dim=3, order=9)
-        filter_iris_l = MA_filter(dim=2, order=9)
-        filter_iris_r = MA_filter(dim=2, order=9)
-        """
-        filter_face_rot = None
-        filter_face_tr = None
-        filter_iris_l = None
-        filter_iris_r = None
+        filter_face_rot, filter_face_tr, filter_iris_l, filter_iris_r = get_filter(
+            self.parent.config.face_filter,
+            self.parent.config.face_filter_param,
+            self.parent.config.iris_filter,
+            self.parent.config.iris_filter_param)
 
         cap.set(cv2.CAP_PROP_POS_FRAMES,0)
 

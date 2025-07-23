@@ -17,7 +17,7 @@ from ..core.eye import eyedata
 from ..core.face import facedata, get_face_boxes, get_face_landmarks
 from ..core.screen import screen
 from ..core.data import gazedata, calibrationdata
-from ..core.util import MA_filter
+from ..core.util import get_filter
 from ._dialogs import DlgAskopenfilename, DlgShowerror, DlgShowinfo
 from ._util import load_pwgazer_config
 
@@ -127,17 +127,11 @@ class Tracker(wx.Frame):
         self.face_rvec = None
         self.face_tvec = None
 
-        self.filter_iris_l = MA_filter(dim=2, order=9)
-        self.filter_iris_r = MA_filter(dim=2, order=9)
-        self.filter_face_tr = MA_filter(dim=3, order=9)
-        self.filter_face_rot = MA_filter(dim=3, order=9)
-        """
-        self.filter_iris_l = None
-        self.filter_iris_r = None
-        self.filter_face_tr = None
-        self.filter_face_rot = None
-        """
-
+        self.filter_face_rot, self.filter_face_tr, self.filter_iris_l, self.filter_iris_r = get_filter(
+            self.config.face_filter,
+            self.config.face_filter_param,
+            self.config.iris_filter,
+            self.config.iris_filter_param)
 
         self.in_recording = False
         self.in_calibration = False
@@ -681,11 +675,15 @@ if __name__ == '__main__':
     app = wx.App(False)
     if args.select_camera:
         print('Launching camera selector...')
-        from .CameraSelector import camera_id_selector_dlg
-        dlg = camera_id_selector_dlg()
+        from .CameraSelector import camera_array, camera_id_selector_dlg
+        cameras = camera_array()
+        if cameras.num_cameras < 1:
+            wx.MessageBox('No camera', 'Error')
+            sys.exit()
+        dlg = camera_id_selector_dlg(cameras, standalone=False)
         if dlg.ShowModal()==wx.ID_OK:
             #dlg.release_cameras()
-            camera_id = dlg.IDs[dlg.selected_cam]
+            camera_id = cameras.IDs[dlg.selected_cam]
             dlg.Destroy()
         else:
             #dlg.release_cameras()

@@ -65,8 +65,11 @@ eye_params = [
     'EYE_OFFSET_RZ'
 ]
 
-app_params = [
-    'IRIS_DETECTOR',
+filter_params = [
+    'FACE_FILTER',
+    'FACE_FILTER_PARAM',
+    'IRIS_FILTER',
+    'IRIS_FILTER_PARAM'
 ]
 
 class config(object):
@@ -93,7 +96,6 @@ class config(object):
         cfgp.optionxform = str
         cfgp.read(filename)
 
-        values = []
         for option in application_params:
             try:
                 s = cfgp.get('Application', option)
@@ -124,8 +126,6 @@ class config(object):
 
         if not (self.calibrated_output or self.calibrationless_output):
             raise ValueError('Either CALIBRATED_OUTPUT or CALIBRATIONLESS_OUTPUT must be True.')
-        
-        self.application_param_file = filename
         
 
     def load_camera_param(self, filename):
@@ -218,6 +218,23 @@ class config(object):
 
         self.eye_params = np.array(values)
 
+        for option in filter_params:
+            try:
+                s = cfgp.get('Filter', option)
+            except:
+                raise RuntimeError('"{}" is not defined in [Filter]'.format(option))
+
+            if option == 'FACE_FILTER':
+                self.face_filter = s
+            elif option == 'FACE_FILTER_PARAM':
+                self.face_filter_param = s
+            elif option == 'IRIS_FILTER':
+                self.iris_filter = s
+            elif option == 'IRIS_FILTER_PARAM':
+                self.iris_filter_param = s
+
+        self.application_param_file = filename
+
         self.face_model_file = filename
 
 
@@ -259,4 +276,10 @@ class config(object):
             for i, option in enumerate(eye_params):
                 fp.write('{} = {}\n'.format(option, self.eye_params[i]))
             
+            fp.write('\n')
+            fp.write('[Eye Parameters]\n')
+            fp.write('FACE_FILTER = {}\n'.format(self.face_filter))
+            fp.write('FACE_FILTER_PAARM = {}\n'.formt(self.face_filter_param))
+            fp.write('IRIS_FILTER = {}\n'.format(self.iris_filter))
+            fp.write('IRIS_FILTER_PAARM = {}\n'.format(self.iris_filter_param))
 

@@ -178,3 +178,36 @@ class MA_filter(object):
                 return np.nanmean(self.buffer, axis=1)
             else:
                 return np.nanmean(self.buffer, axis=1).reshape(orig_shape)
+
+
+def get_filter(face_filter_type, face_filter_param, iris_filter_type, iris_filter_param):
+    if face_filter_type == 'MA':
+        if isinstance(face_filter_param, str):
+            rot_order, tr_order = list(map(int, face_filter_param.split(',')))
+        else:
+            rot_order = face_filter_param[0]
+            tr_order = face_filter_param[1]
+        face_filter_rot = MA_filter(dim=3, order=rot_order)
+        face_filter_tr = MA_filter(dim=3, order=tr_order)
+    else:
+        # read codes from file
+        with open('eye_filter', 'r') as fp:
+            code = fp.read()
+        
+        # execute codes
+        exec(code)
+    
+    if iris_filter_type == 'MA':
+        if not isinstance(iris_filter_param, int):
+            iris_order = int(iris_filter_param)
+        iris_filter_l = MA_filter(dim=2, order=iris_order)
+        iris_filter_r = MA_filter(dim=2, order=iris_order)
+    else:
+        # read codes from file
+        with open('eye_filter', 'r') as fp:
+            code = fp.read()
+        
+        # execute codes
+        exec(code)
+
+    return face_filter_rot, face_filter_tr, iris_filter_l, iris_filter_r

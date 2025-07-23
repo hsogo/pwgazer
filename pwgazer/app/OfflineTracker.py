@@ -17,7 +17,7 @@ from ..core.data import gazedata
 from ..core.eye import eyedata
 from ..core.face import facedata, get_face_boxes, get_face_landmarks
 from ..core.screen import screen
-from ..core.util import MA_filter
+from ..core.util import get_filter
 from ._dialogs import (DlgAskopenfilename, DlgAskyesno,
                         DlgAsksaveasfilename, DlgShowerror, DlgShowinfo)
 from ._util import load_pwgazer_config
@@ -103,16 +103,11 @@ class Offline_Tracker(wx.Frame):
         self.face_model = config.face_model
         self.eye_params = config.eye_params
 
-        """"
-        self.filter_iris_l = MA_filter(dim=2, order=9)
-        self.filter_iris_r = MA_filter(dim=2, order=9)
-        self.filter_face_tr = MA_filter(dim=3, order=9)
-        self.filter_face_rot = MA_filter(dim=3, order=9)
-        """
-        self.filter_iris_l = None
-        self.filter_iris_r = None
-        self.filter_face_tr = None
-        self.filter_face_rot = None
+        self.filter_face_rot, self.filter_face_tr, self.filter_iris_l, self.filter_iris_r = get_filter(
+            self.config.face_filter,
+            self.config.face_filter_param,
+            self.config.iris_filter,
+            self.config.iris_filter_param)
 
         self.face_rvec = None
         self.face_tvec = None

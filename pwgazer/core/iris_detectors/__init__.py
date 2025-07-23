@@ -13,24 +13,29 @@ def get_iris_detector(detector):
         try:
             from .enet_detector import enet_detector
             return enet_detector
-        except:
+        except ImportError:
             print('Cannot import enet_detector. Check if onnxruntime is installed.')
             return None
     else:
+        # Try to read custom detector from file.
         try:
+            # open the file
             fp = open(detector, 'r')
-        except:
+        except RuntimeError:
             print('Cannot open {}.'.format(detector))
             return None
         try:
+            # run the file.
+            # custom_detector must be defined in the code.
             code = fp.read()
             fp.close()
             exec(code)
-        except:
+        except RuntimeError:
             print('Error in {}.'.format(detector))
             return None
         try:
+            # If custom_detector is defiend, return it.
             return custom_detector
-        except:
+        except RuntimeError:
             print('custom_detector is not defined in {}.'.format(detector))
             return None
