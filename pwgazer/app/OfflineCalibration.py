@@ -26,7 +26,7 @@ from ..core.util import calc_gaze_position, get_filter
 from ..core.data import calibrationdata
 from ._dialogs import (DlgAskopenfilename, DlgAsksaveasfilename, DlgAskyesno,
                         DlgShowerror, DlgShowinfo)
-from ._util import load_pwgazer_config
+from ._util import load_pwgazer_config, get_pwgazer_config_dir
 
 def str2points(s):
     p = np.array(tuple(map(float,s[1:-1].split(','))))
@@ -34,18 +34,21 @@ def str2points(s):
 
 ID_OPEN_CAMERA_CONFIG = wx.NewIdRef()
 ID_OPEN_FACE_CONFIG = wx.NewIdRef()
+ID_OPEN_MOVIE = wx.NewIdRef()
 ID_OPEN_CALINFO = wx.NewIdRef()
 ID_SAVE_CALINFO = wx.NewIdRef()
+ID_OPEN_CONFIG_FOLDER = wx.NewIdRef()
 ID_RUN_CAL = wx.NewIdRef()
 
 menu_items_all = [
     ID_OPEN_CAMERA_CONFIG,
     ID_OPEN_FACE_CONFIG,
+    ID_OPEN_MOVIE,
     ID_OPEN_CALINFO,
     ID_SAVE_CALINFO,
+    ID_OPEN_CONFIG_FOLDER,
     ID_RUN_CAL
 ]
-
 
 class gazeResultsDialog(wx.Dialog):
     def __init__(self, parent, raw_gaze):
@@ -588,28 +591,28 @@ class offline_calibration_app(wx.Frame):
         ### Menu ###
         self.menu_bar = wx.MenuBar()
         self.menu_file = wx.Menu()
-        self.menu_movie = wx.Menu()
         self.menu_cal = wx.Menu()
         self.menu_bar.Append(self.menu_file,'File')
-        self.menu_bar.Append(self.menu_movie,'Movie')
         self.menu_bar.Append(self.menu_cal,'Calibration')
 
         self.menu_file.Append(ID_OPEN_CAMERA_CONFIG, 'Open Camera Config')
         self.menu_file.Append(ID_OPEN_FACE_CONFIG, 'Open Face Config')
+        self.menu_file.Append(ID_OPEN_MOVIE, 'Open Movie')
+        self.menu_file.AppendSeparator()
+        self.menu_file.Append(ID_OPEN_CALINFO, 'Open Calibration Info')
+        self.menu_file.Append(ID_SAVE_CALINFO, 'Save Calibration Info')
+        self.menu_file.AppendSeparator()
+        self.menu_file.Append(ID_OPEN_CONFIG_FOLDER, 'Open pwgazer config folder')
         self.menu_file.Append(wx.ID_CLOSE, 'Exit')
         self.Bind(wx.EVT_MENU, self.open_camera_config, id=ID_OPEN_CAMERA_CONFIG)
         self.Bind(wx.EVT_MENU, self.open_face_config, id=ID_OPEN_FACE_CONFIG)
-        self.Bind(wx.EVT_MENU, self.exit, id=wx.ID_CLOSE)
-
-        self.menu_movie.Append(wx.ID_OPEN, 'Open Movie')
-        self.Bind(wx.EVT_MENU, self.open_movie, id=wx.ID_OPEN)
-
-        self.menu_cal.Append(ID_OPEN_CALINFO, 'Open Calibration Info')
-        self.menu_cal.Append(ID_SAVE_CALINFO, 'Save Calibration Info')
-        self.menu_cal.AppendSeparator()
-        self.menu_cal.Append(ID_RUN_CAL, 'Run Calibration')
+        self.Bind(wx.EVT_MENU, self.open_movie, id=ID_OPEN_MOVIE)
         self.Bind(wx.EVT_MENU, self.open_calinfo, id=ID_OPEN_CALINFO)
         self.Bind(wx.EVT_MENU, self.save_calinfo, id=ID_SAVE_CALINFO)
+        self.Bind(wx.EVT_MENU, self.open_config_folder, id=ID_OPEN_CONFIG_FOLDER)
+        self.Bind(wx.EVT_MENU, self.exit, id=wx.ID_CLOSE)
+
+        self.menu_cal.Append(ID_RUN_CAL, 'Run Calibration')
         self.Bind(wx.EVT_MENU, self.run_calibration, id=ID_RUN_CAL)
  
         self.SetMenuBar(self.menu_bar)
@@ -663,13 +666,22 @@ class offline_calibration_app(wx.Frame):
         self.status_cameara_param_filename = wx.StaticText(statuspanel, wx.ID_ANY, self.config.camera_param_file)
         self.status_face_model_filename = wx.StaticText(statuspanel, wx.ID_ANY, self.config.face_model_file)
         self.status_movie_filename = wx.StaticText(statuspanel, wx.ID_ANY, '-')
-        statussizer = wx.FlexGridSizer(cols=2, gap=(10,0))
+        button_open_cameraparam = wx.Button(statuspanel, wx.ID_ANY, "Select")
+        button_open_facemodel = wx.Button(statuspanel, wx.ID_ANY, "Select")
+        button_open_movie = wx.Button(statuspanel, wx.ID_ANY, "Select")
+        button_open_cameraparam.Bind(wx.EVT_BUTTON, self.open_camera_config)
+        button_open_facemodel.Bind(wx.EVT_BUTTON, self.open_face_config)
+        button_open_movie.Bind(wx.EVT_BUTTON, self.open_movie)
+        statussizer = wx.FlexGridSizer(cols=3, gap=(10,0))
         statussizer.Add(wx.StaticText(statuspanel, wx.ID_ANY, 'Camera parameter file:'))
         statussizer.Add(self.status_cameara_param_filename)
+        statussizer.Add(button_open_cameraparam)
         statussizer.Add(wx.StaticText(statuspanel, wx.ID_ANY, 'Face model file:'))
         statussizer.Add(self.status_face_model_filename)
+        statussizer.Add(button_open_facemodel)
         statussizer.Add(wx.StaticText(statuspanel, wx.ID_ANY, 'Movie file:'))
         statussizer.Add(self.status_movie_filename)
+        statussizer.Add(button_open_movie)
         statuspanel.SetSizer(statussizer)
 
         # Widget layout
@@ -716,6 +728,7 @@ class offline_calibration_app(wx.Frame):
         subButtonpanel.SetSizer(subButtonsizer)
 
         subsizer = wx.BoxSizer(wx.VERTICAL)
+        subsizer.Add(wx.StaticText(subpanel, wx.ID_ANY, 'Calibration Points'))
         subsizer.Add(subButtonpanel, proportion=0)
         subsizer.Add(self.calpoint_listbox, flag=wx.EXPAND, proportion=1)
         subpanel.SetSizer(subsizer)
@@ -884,7 +897,7 @@ class offline_calibration_app(wx.Frame):
 
     def open_movie(self, event):
         if event is not None:
-            filename = DlgAskopenfilename(self)
+            filename = DlgAskopenfilename(self, message='Select a movie file')
             if filename == '':
                 return
         else:
@@ -935,7 +948,7 @@ class offline_calibration_app(wx.Frame):
                 self.cap = None
 
     def open_camera_config(self,event):
-        filename = DlgAskopenfilename(self, filetypes='Camera config (*.cfg)|*.cfg')
+        filename = DlgAskopenfilename(self, filetypes='Camera config (*.cfg)|*.cfg', message='Select a camera config file')
         if filename == '':
             return
         
@@ -983,7 +996,7 @@ class offline_calibration_app(wx.Frame):
         self.status_cameara_param_filename.SetLabel(filename)
 
     def open_face_config(self,event):
-        filename = DlgAskopenfilename(self, filetypes='Face model (*.cfg)|*.cfg')
+        filename = DlgAskopenfilename(self, filetypes='Face model (*.cfg)|*.cfg', message='Select a face model file')
         if filename == '':
             return
         
@@ -995,7 +1008,7 @@ class offline_calibration_app(wx.Frame):
 
     def open_calinfo(self, event):
         if event is not None:
-            filename = DlgAskopenfilename(self, filetypes='Calibraion Info (*.csv)|*.csv')
+            filename = DlgAskopenfilename(self, filetypes='Calibraion Info (*.csv)|*.csv', message='Select a calibration information file')
             if filename == '':
                 return
         else:
@@ -1019,7 +1032,7 @@ class offline_calibration_app(wx.Frame):
 
     def save_calinfo(self,event):
         if self.calinfofile is None:
-            filename = DlgAsksaveasfilename(self, filetypes='Calibraion Info (*.csv)|*.csv')
+            filename = DlgAsksaveasfilename(self, filetypes='Calibraion Info (*.csv)|*.csv', message='Select a file to save calibration information')
         else:
             dirname, fname = os.path.split(self.calinfofile)
             filename = DlgAsksaveasfilename(self, filetypes='Calibraion Info (*.csv)|*.csv', initialdir=dirname, initialfile=fname)
@@ -1031,6 +1044,9 @@ class offline_calibration_app(wx.Frame):
             for idx in range(self.calpoint_listbox.GetItemCount()):
                 data = [self.calpoint_listbox.GetItem(idx,col).GetText() for col in range(3)]
                 fp.write('{},{},"{}"\n'.format(*data))
+
+    def open_config_folder(self, event):
+        wx.LaunchDefaultBrowser(get_pwgazer_config_dir())
 
     def exit(self,event):
         self.Destroy()
@@ -1264,10 +1280,10 @@ if __name__ == '__main__':
 
     conf = configuration()
     arg_parser = argparse.ArgumentParser(description='pwgazer offline calibration')
-    arg_parser.add_argument('--camera_param', type=str, help='camera parameters file')
-    arg_parser.add_argument('--face_model', type=str, help='face model file')
-    arg_parser.add_argument('--iris_detector', type=str, help='iris detector (ert, peak, enet or path to detector)')
-    arg_parser.add_argument('--cal_info', type=str, help='calibration information file')
+    arg_parser.add_argument('--camera-param', type=str, help='camera parameters file')
+    arg_parser.add_argument('--face-model', type=str, help='face model file')
+    arg_parser.add_argument('--iris-detector', type=str, help='iris detector (ert, peak, enet or path to detector)')
+    arg_parser.add_argument('--cal-info', type=str, help='calibration information file')
     arg_parser.add_argument('-m', '--movie', type=str, help='movie file (required for batch execution)')
     arg_parser.add_argument('-o', '--output', type=str, help='output file (required for batch execution)')
     arg_parser.add_argument('-b', '--batch', action='store_true', help='batch execution (movie and cal_info are required)')

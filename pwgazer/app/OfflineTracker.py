@@ -144,17 +144,32 @@ class Offline_Tracker(wx.Frame):
         self.status_movie_file = wx.StaticText(self.statuspanel, wx.ID_ANY, '-')
         self.status_cal_file = wx.StaticText(self.statuspanel, wx.ID_ANY, '-')
         self.status_output_file = wx.StaticText(self.statuspanel, wx.ID_ANY, '-')
-        statussizer = wx.FlexGridSizer(cols=2, gap=(10,0))
+        button_open_cameraparam = wx.Button(self.statuspanel, wx.ID_ANY, "Select")
+        button_open_facemodel = wx.Button(self.statuspanel, wx.ID_ANY, "Select")
+        button_open_movie = wx.Button(self.statuspanel, wx.ID_ANY, "Select")
+        button_open_calibration = wx.Button(self.statuspanel, wx.ID_ANY, "Select")
+        button_open_output = wx.Button(self.statuspanel, wx.ID_ANY, "Select")
+        button_open_cameraparam.Bind(wx.EVT_BUTTON, self.open_camera_config)
+        button_open_facemodel.Bind(wx.EVT_BUTTON, self.open_face_model)
+        button_open_movie.Bind(wx.EVT_BUTTON, self.load_movie)
+        button_open_calibration.Bind(wx.EVT_BUTTON, self.open_calibration)
+        button_open_output.Bind(wx.EVT_BUTTON, self.open_datafile)
+        statussizer = wx.FlexGridSizer(cols=3, gap=(10,0))
         statussizer.Add(wx.StaticText(self.statuspanel, wx.ID_ANY, 'Camera parameter file:'))
         statussizer.Add(self.status_camera_param)
+        statussizer.Add(button_open_cameraparam)
         statussizer.Add(wx.StaticText(self.statuspanel, wx.ID_ANY, 'Face model file:'))
         statussizer.Add(self.status_face_model)
+        statussizer.Add(button_open_facemodel)
         statussizer.Add(wx.StaticText(self.statuspanel, wx.ID_ANY, 'Movie file:'))
         statussizer.Add(self.status_movie_file)
+        statussizer.Add(button_open_movie)
         statussizer.Add(wx.StaticText(self.statuspanel, wx.ID_ANY, 'Calibration file:'))
         statussizer.Add(self.status_cal_file)
+        statussizer.Add(button_open_calibration)
         statussizer.Add(wx.StaticText(self.statuspanel, wx.ID_ANY, 'Output file:'))
         statussizer.Add(self.status_output_file)
+        statussizer.Add(button_open_output)
         self.statuspanel.SetSizer(statussizer)
         
         mainsizer = wx.BoxSizer(wx.VERTICAL)
@@ -176,12 +191,16 @@ class Offline_Tracker(wx.Frame):
         self.menu_file.AppendSeparator()
         self.menu_file.Append(ID_OPEN_DATAFILE, 'Open data file')
         self.menu_file.Append(ID_CLOSE_DATAFILE, 'Close data file')
+        self.menu_file.AppendSeparator()
+        self.menu_file.Append(wx.ID_CLOSE, 'Exit')
+
         self.Bind(wx.EVT_MENU, self.load_movie, id=ID_LOAD_MOVIE)
         self.Bind(wx.EVT_MENU, self.open_calibration, id=ID_LOAD_CAL)
         self.Bind(wx.EVT_MENU, self.open_camera_config, id=ID_LOAD_CAMERACONFIG)
         self.Bind(wx.EVT_MENU, self.open_face_model, id=ID_LOAD_FACEMODEL)
         self.Bind(wx.EVT_MENU, self.open_datafile, id=ID_OPEN_DATAFILE)
         self.Bind(wx.EVT_MENU, self.close_datafile, id=ID_CLOSE_DATAFILE)
+        self.Bind(wx.EVT_MENU, self.exit, id=wx.ID_CLOSE)
 
         self.menu_bar.Append(self.menu_rec, 'Run')
         self.menu_rec.Append(ID_RUN_REC, 'Run offline recording')
@@ -286,7 +305,7 @@ class Offline_Tracker(wx.Frame):
         if isinstance(event, str):
             filename = event
         else:
-            filename = DlgAskopenfilename(self)
+            filename = DlgAskopenfilename(self, message='Select a movie file')
             if filename == '':
                 return
             
@@ -331,7 +350,7 @@ class Offline_Tracker(wx.Frame):
                 self.cap = None
         
     def open_camera_config(self,event):
-        filename = DlgAskopenfilename(self, filetypes='Camera config (*.cfg)|*.cfg')
+        filename = DlgAskopenfilename(self, filetypes='Camera config (*.cfg)|*.cfg', message='Select a camera config file')
         if filename == '':
             return
         
@@ -383,7 +402,7 @@ class Offline_Tracker(wx.Frame):
         DlgShowinfo(self, 'Info', 'Camera parameters are updated.')
 
     def open_face_model(self,event):
-        filename = DlgAskopenfilename(self, filetypes='Face model (*.cfg)|*.cfg')
+        filename = DlgAskopenfilename(self, filetypes='Face model (*.cfg)|*.cfg', message='Select a face model file')
         if filename == '':
             return
         
@@ -398,7 +417,7 @@ class Offline_Tracker(wx.Frame):
         if isinstance(event, str):
             filename = event
         else:
-            filename = DlgAskopenfilename(self, filetypes='Calibration result (*.npz)|*.npz')
+            filename = DlgAskopenfilename(self, filetypes='Calibration result (*.npz)|*.npz', message='Select a calibration data file')
             if filename == '':
                 return
         
@@ -597,7 +616,7 @@ class Offline_Tracker(wx.Frame):
             filename = event
             open_mode = self.config.datafile_open_mode
         else:
-            filename = DlgAsksaveasfilename(self, filetypes='pwgazer datafile (*.csv)|*.csv')
+            filename = DlgAsksaveasfilename(self, filetypes='pwgazer datafile (*.csv)|*.csv', message='Select an output file')
             if filename == '':
                 return
             if Path(filename).exists():
@@ -640,6 +659,9 @@ class Offline_Tracker(wx.Frame):
         self.data.close()
         self.data = None
     
+    def exit(self,event):
+        self.Destroy()
+
     def get_preview_image(self, frame, leye_img, reye_img):
         if self.downscaling_factor != 1.0:
             frame = cv2.resize(frame, None, fx=self.downscaling_factor, fy=self.downscaling_factor)
@@ -790,15 +812,15 @@ if __name__ == '__main__':
 
     conf = configuration()
     arg_parser = argparse.ArgumentParser(description='pwgazer offline tracker')
-    arg_parser.add_argument('--camera_param', type=str, help='camera parameters file')
-    arg_parser.add_argument('--face_model', type=str, help='face model file')
-    arg_parser.add_argument('--iris_detector', type=str, help='iris detector (ert, peak, enet or path to detector)')
+    arg_parser.add_argument('--camera-param', type=str, help='camera parameters file')
+    arg_parser.add_argument('--face-model', type=str, help='face model file')
+    arg_parser.add_argument('--iris-detector', type=str, help='iris detector (ert, peak, enet or path to detector)')
     arg_parser.add_argument('-b', '--batch', action='store_true', help='batch execution (movie and calibration are required)')
     arg_parser.add_argument('-m', '--movie', type=str, help='movie file (required for batch execution)')
     arg_parser.add_argument('-c', '--cal', type=str, help='calibration file (required for batch execution)')
     arg_parser.add_argument('-o', '--output', type=str, help='output file (required for batch execution)')
     arg_parser.add_argument('--overwrite', action='store_true', help='overwrite output file (batch mode)')
-    arg_parser.add_argument('--force_calibrationless', action='store_true', help='Force calibrationless output (batch mode)')
+    arg_parser.add_argument('--force-calibrationless', action='store_true', help='Force calibrationless output (batch mode)')
     arg_parser.add_argument('--debug', action='store_true', help='Debug mode')
     args = arg_parser.parse_args()
 

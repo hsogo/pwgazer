@@ -14,12 +14,12 @@ if __name__ == '__main__':
 
     arg_parser = argparse.ArgumentParser(description='pwgazer performance test')
     arg_parser.add_argument('-i', '--image', type=str, help='Image file or folder', required=True)
-    arg_parser.add_argument('-f', '--face_model', type=str, help='face model file')
-    arg_parser.add_argument('-c', '--camera_caldata', type=str, help='camera calibration file')
+    arg_parser.add_argument('-f', '--face-model', type=str, help='face model file')
+    arg_parser.add_argument('-c', '--camera-caldata', type=str, help='camera calibration file')
     arg_parser.add_argument('-o', '--output', type=str, help='output file')
     arg_parser.add_argument('-d', '--detector', type=str, help='iris detector')
-    arg_parser.add_argument('--image_gain', type=float, help='pixel values are multiplied by this value')
-    arg_parser.add_argument('--noise_sigma', type=float, help='sigma of Gaussian random noise')
+    arg_parser.add_argument('--image-gain', type=float, help='pixel values are multiplied by this value')
+    arg_parser.add_argument('--noise-sigma', type=float, help='sigma of Gaussian random noise')
     args = arg_parser.parse_args()
 
     conf = config.config()

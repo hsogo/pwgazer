@@ -49,3 +49,6 @@ def load_pwgazer_config(conf, args):
         iris_detector = get_iris_detector(args.iris_detector)
     
     return camera_param_file, face_model_file, iris_detector
+
+def get_pwgazer_config_dir():
+    return pwgazer.configDir

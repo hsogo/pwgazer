@@ -16,9 +16,9 @@ if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser(description='pwgazer frame inspection tool')
     arg_parser.add_argument('movie', type=str, help='movie file')
     arg_parser.add_argument('frame', type=int, help='movie file')
-    arg_parser.add_argument('--camera_param', type=str, help='camera parameters file')
-    arg_parser.add_argument('--face_model', type=str, help='face model file')
-    arg_parser.add_argument('--iris_detector', type=str, help='iris detector (ert, peak, enet or path to detector)')
+    arg_parser.add_argument('--camera-param', type=str, help='camera parameters file')
+    arg_parser.add_argument('--face-model', type=str, help='face model file')
+    arg_parser.add_argument('--iris-detector', type=str, help='iris detector (ert, peak, enet or path to detector)')
     args = arg_parser.parse_args()
 
     camera_param_file, face_model_file, iris_detector = load_pwgazer_config(conf, args)

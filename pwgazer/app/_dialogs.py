@@ -20,8 +20,8 @@ def DlgShowerror(parent=None, caption='Show Error', message='Show Error'):
     dlg.ShowModal()
     dlg.Destroy()
 
-def DlgAskopenfilename(parent=None, filetypes='', initialdir=''):
-    dlg = wx.FileDialog(parent, defaultDir=initialdir, wildcard=filetypes, style=wx.FD_OPEN)
+def DlgAskopenfilename(parent=None, filetypes='', initialdir='', message='Select a file'):
+    dlg = wx.FileDialog(parent, message=message, defaultDir=initialdir, wildcard=filetypes, style=wx.FD_OPEN)
     if dlg.ShowModal() == wx.ID_OK:
         d = dlg.GetDirectory()
         f = dlg.GetFilename()
@@ -31,8 +31,8 @@ def DlgAskopenfilename(parent=None, filetypes='', initialdir=''):
         dlg.Destroy()
         return ''
 
-def DlgAskopenfilenames(parent=None, filetypes='', initialdir=''):
-    dlg = wx.FileDialog(parent, defaultDir=initialdir, wildcard=filetypes, style=wx.FD_OPEN|wx.FD_MULTIPLE)
+def DlgAskopenfilenames(parent=None, filetypes='', initialdir='', message='Select files'):
+    dlg = wx.FileDialog(parent, defaultDir=initialdir, wildcard=filetypes, style=wx.FD_OPEN|wx.FD_MULTIPLE, message=message)
     if dlg.ShowModal() == wx.ID_OK:
         d = dlg.GetDirectory()
         flist = dlg.GetFilenames()
@@ -42,8 +42,8 @@ def DlgAskopenfilenames(parent=None, filetypes='', initialdir=''):
         dlg.Destroy()
         return []
 
-def DlgAsksaveasfilename(parent=None, filetypes='', initialdir='', initialfile=''):
-    dlg = wx.FileDialog(parent, defaultDir=initialdir, defaultFile=initialfile, wildcard=filetypes, style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
+def DlgAsksaveasfilename(parent=None, filetypes='', initialdir='', initialfile='', message='Select a file'):
+    dlg = wx.FileDialog(parent, defaultDir=initialdir, defaultFile=initialfile, wildcard=filetypes, style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT, message=message)
     if dlg.ShowModal() == wx.ID_OK:
         d = dlg.GetDirectory()
         f = dlg.GetFilename()
