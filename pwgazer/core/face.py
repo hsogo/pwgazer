@@ -88,10 +88,10 @@ def get_face_boxes(frame, engine='dlib_hog'):
     """
 
 
-
 def get_face_landmarks(frame, detection):
     shape = dlib_face_predictor(frame, detection)
     return np.array([(shape.part(ii).x, shape.part(ii).y) for ii in range(shape.num_parts)])
+
 
 class facedata(object):
     """
@@ -208,11 +208,15 @@ class facedata(object):
         
     def calc_marker_2D(self):
         # calculate marker points to draw face direction vector
-        (nose_end_point2D, _) = cv2.projectPoints(
-            np.array([(0.0, 0.0, -50.0)]), self.rotation_vector, self.translation_vector, self.camera_matrix, self.dist_coeffs)
+        pts = np.vstack((
+            (self.face_model[2]+self.face_model[3])/2,
+            [(25.0, 0.0, 0.0)],
+            [(0.0, 25.0, 0.0)],
+            [(0.0, 0.0, -100.0)]))
+        (nose_end_pts, _) = cv2.projectPoints(
+            pts, self.rotation_vector, self.translation_vector, self.camera_matrix, self.dist_coeffs)
         
-        self.marker_p1 = (int(self.fitting_pts[0][0]), int(self.fitting_pts[0][1]))
-        self.marker_p2 = (int(nose_end_point2D[0][0][0]), int(nose_end_point2D[0][0][1]))
+        self.marker_pts = np.squeeze(nose_end_pts, axis=1).astype(np.int32)
 
     def get_eye_center(self):
         self.left_eye_camera_coord = np.dot(self.rotation_matrix, self.left_eye_center.reshape(3,1)) + self.translation_vector
@@ -225,7 +229,9 @@ class facedata(object):
     def draw_marker(self, image):
         for p in self.fitting_pts:
             cv2.circle(image, (int(p[0]), int(p[1])), 3, (0,255,0), -1)
-        cv2.line(image, self.marker_p1, self.marker_p2, (255,0,0), 2)
+        cv2.line(image, self.marker_pts[0], self.marker_pts[1], (0,0,255), 1)
+        cv2.line(image, self.marker_pts[0], self.marker_pts[2], (0,255,0), 1)
+        cv2.line(image, self.marker_pts[0], self.marker_pts[3], (255,0,0), 2)
 
         #debug
         """
