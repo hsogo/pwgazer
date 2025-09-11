@@ -81,7 +81,8 @@ class eyedata(object):
         self.eyelid_top = ((self.eyelid_top - self.image_origin) * self.image_scale).astype(np.int64)
         self.eyelid_bottom = ((self.eyelid_bottom - self.image_origin) * self.image_scale).astype(np.int64)
         self.eyelid_points = np.vstack((self.eyelid_ends, self.eyelid_top, self.eyelid_bottom))
-        
+        self.palpebral_fissure_length = np.linalg.norm(self.eyelid_ends[1]-self.eyelid_ends[0])
+
         self.eye_aspect_ratio = self.get_eye_aspect_ratio()
         self.iris_detector(self)  # "self" is necessary because iris_detector is not the method of this class.
 

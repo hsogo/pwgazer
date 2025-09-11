@@ -1,6 +1,7 @@
 import shutil
 from pathlib import Path
 import pwgazer
+import numpy as np
 
 from ..core.iris_detectors import get_iris_detector
 
@@ -52,3 +53,23 @@ def load_pwgazer_config(conf, args):
 
 def get_pwgazer_config_dir():
     return pwgazer.configDir
+
+class recent_values(object):
+    def __init__(self, shape):
+        self._values = np.zeros(shape, dtype=np.float64)
+        self._values.fill(np.nan)
+        self._i = 0
+    
+    def append(self, value):
+        self._values[self._i,:] = value
+        self._i = (self._i+1) % self._values.shape[0]
+    
+    def values(self):
+        return self._values
+    
+    def average(self):
+        return np.nanmean(self._values, axis=0)
+
+    def std(self):
+        return np.nanstd(self._values, axis=0)
+

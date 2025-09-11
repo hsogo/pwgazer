@@ -1,5 +1,6 @@
 import numpy as np
 import warnings
+from dlib import rectangle as dlib_rect
 #import numpy.ma as ma
 
 debug_mode = False
@@ -189,6 +190,9 @@ def get_filter(face_filter_type, face_filter_param, iris_filter_type, iris_filte
             tr_order = face_filter_param[1]
         face_filter_rot = MA_filter(dim=3, order=rot_order)
         face_filter_tr = MA_filter(dim=3, order=tr_order)
+    elif face_filter_type == 'None':
+        face_filter_rot = None
+        face_filter_tr = None
     else:
         # read codes from file
         with open('eye_filter', 'r') as fp:
@@ -202,6 +206,9 @@ def get_filter(face_filter_type, face_filter_param, iris_filter_type, iris_filte
             iris_order = int(iris_filter_param)
         iris_filter_l = MA_filter(dim=2, order=iris_order)
         iris_filter_r = MA_filter(dim=2, order=iris_order)
+    elif face_filter_type == 'None':
+        iris_filter_l = None
+        iris_filter_r = None
     else:
         # read codes from file
         with open('eye_filter', 'r') as fp:
@@ -211,3 +218,32 @@ def get_filter(face_filter_type, face_filter_param, iris_filter_type, iris_filte
         exec(code)
 
     return face_filter_rot, face_filter_tr, iris_filter_l, iris_filter_r
+
+def get_region_brightness_contrast(image, region, feature_region=None):
+    if isinstance(region, dlib_rect):
+        rt, rb, rl, rr = (region.top(), region.bottom(), region.left(), region.right())
+    else:
+        rt, rb, rl, rr = (region[1], region[1]+region[3], region[0], region[0]+region[2])
+
+    if feature_region is not None:
+        if isinstance(feature_region, dlib_rect):
+            ft,  fb, fl, fr = (feature_region.top(), feature_region.bottom(), feature_region.left(), feature_region.right())
+        else:
+            ft, fb, fl, fr = (feature_region[1], feature_region[1]+feature_region[3], feature_region[0], feature_region[0]+feature_region[2])
+        
+        rt += 0.75*(ft-rt)
+        rb += 0.75*(fb-rb)
+        rl += 0.75*(fl-rl)
+        rr += 0.75*(fr-rr)
+    
+    rt, rb, rl, rr = map(int, (rt, rb, rl, rr))
+
+    region_image = image[rt:rb, rl:rr]
+
+    #scene_average = np.mean(image)
+    region_average = np.mean(region_image)
+    region_rms_contrast = np.sqrt(np.mean((region_image - region_average) ** 2))
+    
+    return region_average, region_rms_contrast, (rl, rt, rr-rl, rb-rt)
+
+

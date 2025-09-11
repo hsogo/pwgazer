@@ -17,9 +17,9 @@ from ..core.eye import eyedata
 from ..core.face import facedata, get_face_boxes, get_face_landmarks
 from ..core.screen import screen
 from ..core.data import gazedata, calibrationdata
-from ..core.util import get_filter
+from ..core.util import get_filter, get_region_brightness_contrast
 from ._dialogs import DlgAskopenfilename, DlgShowerror, DlgShowinfo
-from ._util import load_pwgazer_config
+from ._util import load_pwgazer_config, recent_values
 
 import dlib
 import cv2
@@ -126,6 +126,8 @@ class Tracker(wx.Frame):
 
         self.face_rvec = None
         self.face_tvec = None
+
+        self.detection_results = recent_values((100,5))
 
         self.filter_face_rot, self.filter_face_tr, self.filter_iris_l, self.filter_iris_r = get_filter(
             self.config.face_filter,
@@ -558,6 +560,13 @@ class Tracker(wx.Frame):
         else:
             cv2.rectangle(canvas, (frame.shape[1]+eye_image_width,0), (frame.shape[1]+eye_image_width*2,eye_image_height), (64,64,64), thickness=1)
 
+        ave = self.detection_results.average()
+        std = self.detection_results.std()
+        message = 'face detection: {:.1f}% iris detection: L {:.1f}% R {:.1f}%'.format(ave[0]*100, ave[1]*100, ave[3]*100)
+        cv2.putText(canvas, message, (frame.shape[1], eye_image_height+20), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255))
+        message = 'iris size: L {:.1f}({:.1f}) R {:.1f}({:.1f})'.format(ave[2]*100, std[2]*100, ave[4]*100, std[4]*100)
+        cv2.putText(canvas, message, (frame.shape[1], eye_image_height+40), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255))
+
         return canvas
 
     def main_loop(self):
@@ -598,6 +607,12 @@ class Tracker(wx.Frame):
                     face = facedata(landmarks, camera_matrix=self.camera_matrix, face_model=self.face_model,
                         eye_params=self.eye_params, prev_vec=(self.face_rvec, self.face_tvec), filter=(self.filter_face_rot, self.filter_face_tr))
 
+                    if not self.in_recording:
+                        # calculate brightness and contrast
+                        fp_rect = cv2.boundingRect(face.fitting_pts.astype(np.int32))
+                        region_average, region_rms_contrast, target_rect = get_region_brightness_contrast(frame_mono, dets[0], fp_rect)
+
+
                     # create eyedata
                     left_eye = eyedata(frame_mono, landmarks, eye='L', iris_detector=self.iris_detector, filter=self.filter_iris_l)
                     right_eye = eyedata(frame_mono, landmarks, eye='R', iris_detector=self.iris_detector, filter=self.filter_iris_r)
@@ -614,7 +629,7 @@ class Tracker(wx.Frame):
                     detect_face = False
                     self.face_rvec = None
                     self.face_tvec = None
-                
+
                 # during calibration
                 if self.in_calibration:
                     if self.calibration_sample_count > 0 and detect_face and (not left_eye.blink) and (not right_eye.blink):
@@ -635,6 +650,28 @@ class Tracker(wx.Frame):
 
                 # render image
                 if self.render_image:
+                    # append detection results
+                    detection_results = [np.nan, np.nan, np.nan, np.nan, np.nan]
+                    if detect_face:
+                        detection_results[0] = 1
+                        if left_eye.iris_radius is not None:
+                            detection_results[1] = 1
+                            detection_results[2] = np.mean(left_eye.iris_radius[0])/left_eye.palpebral_fissure_length
+                        else:
+                            detection_results[1] = 0
+                            detection_results[2] = np.nan
+                        if right_eye.iris_radius is not None:
+                            detection_results[3] = 1
+                            detection_results[4] = np.mean(right_eye.iris_radius[0])/right_eye.palpebral_fissure_length
+                        else:
+                            detection_results[3] = 0
+                            detection_results[4] = np.nan
+                    else:
+                        detection_results[0] = 0
+                        detection_results[1] = 0
+                        detection_results[3] = 0
+                    self.detection_results.append(detection_results)
+
                     if detect_face:
                         if not left_eye.blink:
                             #left_eye.draw_marker(frame)
@@ -645,6 +682,13 @@ class Tracker(wx.Frame):
 
                         face.draw_marker(frame)
                         face.draw_eyelids_landmarks(frame)
+
+                        if not self.in_recording:
+                            frame_color = (255, 255, 255) if region_rms_contrast > 10.0 else (63, 63, 255)
+                            cv2.rectangle(frame, (target_rect[0],target_rect[1]), (target_rect[0]+target_rect[2],target_rect[1]+target_rect[3]),
+                                        frame_color, 1, cv2.LINE_AA)
+                            cv2.putText(frame, 'Ave:{:.1f},Cnt:{:.1f}'.format(region_average, region_rms_contrast),
+                                        (target_rect[0], target_rect[1]), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255))
                     
                     if not self.queue.full():
                         canvas = self.get_preview_image(frame, leye_img, reye_img)
