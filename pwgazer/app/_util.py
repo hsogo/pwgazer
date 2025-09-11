@@ -2,6 +2,7 @@ import shutil
 from pathlib import Path
 import pwgazer
 import numpy as np
+import warnings
 
 from ..core.iris_detectors import get_iris_detector
 
@@ -68,8 +69,12 @@ class recent_values(object):
         return self._values
     
     def average(self):
-        return np.nanmean(self._values, axis=0)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            return np.nanmean(self._values, axis=0)
 
     def std(self):
-        return np.nanstd(self._values, axis=0)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            return np.nanstd(self._values, axis=0)
 
