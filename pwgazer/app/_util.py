@@ -3,6 +3,7 @@ from pathlib import Path
 import pwgazer
 import numpy as np
 import warnings
+import wx
 
 from ..core.iris_detectors import get_iris_detector
 
@@ -77,4 +78,23 @@ class recent_values(object):
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
             return np.nanstd(self._values, axis=0)
+
+
+
+class CameraView(wx.StaticBitmap):
+    def __init__(self, *args, **kwargs):
+        super(CameraView, self).__init__(*args, **kwargs)
+        self.SetBackgroundStyle(wx.BG_STYLE_CUSTOM)
+        self.Bind(wx.EVT_PAINT, self.on_paint)
+
+    def on_paint(self, event):
+        try:
+            image = self.GetBitmap()
+            if not image:
+                return
+            dc = wx.AutoBufferedPaintDC(self)
+            dc.Clear()
+            dc.DrawBitmap(image, 0, 0, True)
+        except:
+            pass
 

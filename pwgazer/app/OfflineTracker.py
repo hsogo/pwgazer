@@ -20,7 +20,7 @@ from ..core.screen import screen
 from ..core.util import get_filter
 from ._dialogs import (DlgAskopenfilename, DlgAskyesno,
                         DlgAsksaveasfilename, DlgShowerror, DlgShowinfo)
-from ._util import load_pwgazer_config
+from ._util import load_pwgazer_config, CameraView
 
 ID_LOAD_MOVIE = wx.NewIdRef()
 ID_LOAD_CAL = wx.NewIdRef()
@@ -56,23 +56,6 @@ menu_items_all = [
 
 eye_image_width = 256
 eye_image_height = 128
-
-class CameraView(wx.StaticBitmap):
-    def __init__(self, *args, **kwargs):
-        super(CameraView, self).__init__(*args, **kwargs)
-        self.SetBackgroundStyle(wx.BG_STYLE_CUSTOM)
-        self.Bind(wx.EVT_PAINT, self.on_paint)
-
-    def on_paint(self, event):
-        try:
-            image = self.GetBitmap()
-            if not image:
-                return
-            dc = wx.AutoBufferedPaintDC(self)
-            dc.Clear()
-            dc.DrawBitmap(image, 0, 0, True)
-        except:
-            pass
 
 
 class Offline_Tracker(wx.Frame):

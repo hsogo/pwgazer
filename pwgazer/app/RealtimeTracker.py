@@ -19,7 +19,7 @@ from ..core.screen import screen
 from ..core.data import gazedata, calibrationdata
 from ..core.util import get_filter, get_region_brightness_contrast
 from ._dialogs import DlgAskopenfilename, DlgShowerror, DlgShowinfo
-from ._util import load_pwgazer_config, recent_values
+from ._util import load_pwgazer_config, recent_values, CameraView
 
 import dlib
 import cv2
@@ -40,23 +40,6 @@ ID_OUTPUTMODE_BOTH = wx.NewIdRef()
 eye_image_width = 256
 eye_image_height = 128
 
-
-class CameraView(wx.StaticBitmap):
-    def __init__(self, *args, **kwargs):
-        super(CameraView, self).__init__(*args, **kwargs)
-        self.SetBackgroundStyle(wx.BG_STYLE_CUSTOM)
-        self.Bind(wx.EVT_PAINT, self.on_paint)
-
-    def on_paint(self, event):
-        try:
-            image = self.GetBitmap()
-            if not image:
-                return
-            dc = wx.AutoBufferedPaintDC(self)
-            dc.Clear()
-            dc.DrawBitmap(image, 0, 0, True)
-        except:
-            pass
 
 class CameraEditDlg(wx.Frame):
     def __init__(self, parent, id=wx.ID_ANY):
@@ -127,7 +110,7 @@ class Tracker(wx.Frame):
         self.face_rvec = None
         self.face_tvec = None
 
-        self.detection_results = recent_values((100,5))
+        self.detection_results = recent_values((30,5))
 
         self.filter_face_rot, self.filter_face_tr, self.filter_iris_l, self.filter_iris_r = get_filter(
             self.config.face_filter,
