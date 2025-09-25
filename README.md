@@ -51,6 +51,12 @@ OFFSET_Z=
 ROT_X=
 ROT_Y=
 ROT_Z=
+
+[Filter]
+FACE_FILTER = MA
+FACE_FILTER_PARAM = 2,2
+IRIS_FILTER = MA
+IRIS_FILTER_PARAM = 2
 ```
 
 As can be seen, "CAMERA_ID" in the "Basic Parameters" section and all entries in the "Screen Layout Parateters" section are not filled.
