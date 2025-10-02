@@ -16,7 +16,6 @@ import wx.lib.newevent
 import matplotlib
 import matplotlib.figure
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg, NavigationToolbar2WxAgg
-import traceback
 
 from ..core.config import config as configuration
 from ..core.eye import eyedata

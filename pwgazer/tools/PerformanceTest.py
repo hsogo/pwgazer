@@ -7,7 +7,7 @@ import codecs
 from ..core import config
 from ..core.face import get_face_boxes, get_face_landmarks, facedata
 from ..core.eye import eyedata
-from ..core.util import calc_gaze_position, get_eye_rotation
+from ..core.util import calc_gaze_position
 from ..core.screen import screen
 from ..core.util import get_region_brightness_contrast
 

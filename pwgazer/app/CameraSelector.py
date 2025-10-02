@@ -1,7 +1,6 @@
 import wx
 import cv2
 import wx.lib.newevent
-import numpy as np
 
 cameraview_width = 640
 cameraview_height = 480

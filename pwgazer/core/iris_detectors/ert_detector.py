@@ -11,7 +11,6 @@ from pathlib import Path
 # Set equal value for rs and rl to represent circle.
 
 module_dir = Path(__file__).parent
-
 _predictor = dlib.shape_predictor(str(module_dir/'ert_predictor.dat'))
 
 def ert_detector(eyedata, debug=False):

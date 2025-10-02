@@ -1,11 +1,7 @@
 import numpy as np
 import cv2
 from pathlib import Path
-
-module_dir = Path(__file__).parent
-
-input_width = 256
-input_height = 128
+import onnxruntime
 
 # *Iris detectors*
 # Iris detectors must set eyedata.iris_center and iris_radius.
@@ -14,8 +10,11 @@ input_height = 128
 # q is the rotation angle of the axis.
 # Set equal value for rs and rl to represent circle.
 
-import onnxruntime
+module_dir = Path(__file__).parent
 enet = onnxruntime.InferenceSession(str(module_dir / "enet.onnx"))
+
+input_width = 256
+input_height = 128
 
 def enet_detector(eyedata, debug=False):
     if eyedata.image.shape != (input_height, input_width):
