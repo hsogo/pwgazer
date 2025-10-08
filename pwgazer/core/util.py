@@ -1,7 +1,7 @@
 import numpy as np
 import warnings
 from dlib import rectangle as dlib_rect
-#import numpy.ma as ma
+import os
 
 debug_mode = False
 
@@ -182,7 +182,10 @@ class MA_filter(object):
 
 
 def get_filter(face_filter_type, face_filter_param, iris_filter_type, iris_filter_param):
-    if face_filter_type == 'MA':
+    if face_filter_type == '':
+        face_filter_rot = None
+        face_filter_tr = None
+    elif face_filter_type == 'MA':
         if isinstance(face_filter_param, str):
             rot_order, tr_order = list(map(int, face_filter_param.split(',')))
         else:
@@ -190,32 +193,41 @@ def get_filter(face_filter_type, face_filter_param, iris_filter_type, iris_filte
             tr_order = face_filter_param[1]
         face_filter_rot = MA_filter(dim=3, order=rot_order)
         face_filter_tr = MA_filter(dim=3, order=tr_order)
-    elif face_filter_type == 'None':
-        face_filter_rot = None
-        face_filter_tr = None
-    else:
+    elif os.path.isfile(face_filter_type):
         # read codes from file
-        with open('eye_filter', 'r') as fp:
+        with open(face_filter_type, 'r') as fp:
             code = fp.read()
-        
         # execute codes
-        exec(code)
+        try:
+            exec(code)
+        except:
+            raise RuntimeError('Could not read filter from file: {}'.format(face_filter_type))
+        if 'iri_filter_l' not in locals() or 'iris_filter_r' not in locals():
+            raise RuntimeError('"face_filter_rot" and "face_filter_tr" must be defined in {}'.format(face_filter_type))
+    else:
+        raise RuntimeError('Unknown filter: {}'.format(face_filter_type))
     
-    if iris_filter_type == 'MA':
+    if iris_filter_type == '':
+        iris_filter_l = None
+        iris_filter_r = None
+    elif iris_filter_type == 'MA':
         if not isinstance(iris_filter_param, int):
             iris_order = int(iris_filter_param)
         iris_filter_l = MA_filter(dim=2, order=iris_order)
         iris_filter_r = MA_filter(dim=2, order=iris_order)
-    elif face_filter_type == 'None':
-        iris_filter_l = None
-        iris_filter_r = None
-    else:
+    elif os.path.isfile(iris_filter_type):
         # read codes from file
-        with open('eye_filter', 'r') as fp:
+        with open(iris_filter_type, 'r') as fp:
             code = fp.read()
-        
-        # execute codes
-        exec(code)
+        # execute code
+        try:
+            exec(code)
+        except:
+            raise RuntimeError('Could not read filter from file: {}'.format(iris_filter_type))
+        if 'iri_filter_l' not in locals() or 'iris_filter_r' not in locals():
+            raise RuntimeError('"iris_filter_l" and "iris_filter_r" must be defined in {}'.format(iris_filter_type))
+    else:
+        raise RuntimeError('Unknown filter: {}'.format(iris_filter_type))
 
     return face_filter_rot, face_filter_tr, iris_filter_l, iris_filter_r
 
