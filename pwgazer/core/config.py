@@ -86,10 +86,15 @@ class config(object):
         self.screen_rot = None
         self.face_model = None
         self.eye_params = None
+        self.face_filter = None
+        self.face_filter_param = '0,0'
+        self.iris_filter = None
+        self.iris_filter_param = '0'
 
         self.application_param_file=''
         self.camera_param_file = ''
         self.face_model_file = ''
+        self.filter_param_file = ''
 
     def load_application_param(self, filename):
         cfgp = configparser.ConfigParser()
@@ -127,6 +132,7 @@ class config(object):
         if not (self.calibrated_output or self.calibrationless_output):
             raise ValueError('Either CALIBRATED_OUTPUT or CALIBRATIONLESS_OUTPUT must be True.')
         
+        self.application_param_file = filename
 
     def load_camera_param(self, filename):
         cfgp = configparser.ConfigParser()
@@ -218,6 +224,14 @@ class config(object):
 
         self.eye_params = np.array(values)
 
+        self.face_model_file = filename
+
+
+    def load_filter_param(self, filename):
+        cfgp = configparser.ConfigParser()
+        cfgp.optionxform = str
+        cfgp.read(filename)
+
         for option in filter_params:
             try:
                 s = cfgp.get('Filter', option)
@@ -233,15 +247,17 @@ class config(object):
             elif option == 'IRIS_FILTER_PARAM':
                 self.iris_filter_param = s
 
-        self.application_param_file = filename
-
-        self.face_model_file = filename
+        self.filter_param_file = filename
 
 
-    def save_camera_param(self, filename):
+    def save_camera_param(self, filename=None):
         if self.camera_matrix is None or self.dist_coeffs is None:
             raise RuntimeError('Camera parameters are not initialized')
         serialized_params = np.hstack((self.camera_matrix.ravel(), self.dist_coeffs.ravel()))
+
+        if filename is None:
+            filename = self.camera_param_file
+
         with open(filename, 'w') as fp:
             fp.write('[Basic Parameters]\n')
             fp.write('CAMERA_ID = {}\n'.format(self.camera_id))
@@ -263,10 +279,14 @@ class config(object):
             for i, axis in enumerate(['X','Y','Z']):
                 fp.write('ROT_{} = {}\n'.format(axis, self.screen_rot[i]))
 
-    def save_face_model(self, filename):
+    def save_face_model(self, filename=None):
         if self.face_model is None:
             raise RuntimeError('Face model is not initialized')
-        with open('filename', 'w') as fp:
+
+        if filename is None:
+            filename = self.face_model_file
+
+        with open(filename, 'w') as fp:
             fp.write('[Face Model]\n')
             for i, option in enumerate(face_model_params):
                 fp.write('{} = {},{},{}\n'.format(option, self.face_model[i,0], self.face_model[i,1], self.face_model[i,2]))
@@ -276,8 +296,12 @@ class config(object):
             for i, option in enumerate(eye_params):
                 fp.write('{} = {}\n'.format(option, self.eye_params[i]))
             
-            fp.write('\n')
-            fp.write('[Eye Parameters]\n')
+    def save_filter_param(self, filename=None):
+        if filename is None:
+            filename = self.filter_param_file
+
+        with open(filename, 'w') as fp:
+            fp.write('[Filter]\n')
             fp.write('FACE_FILTER = {}\n'.format(self.face_filter))
             fp.write('FACE_FILTER_PAARM = {}\n'.formt(self.face_filter_param))
             fp.write('IRIS_FILTER = {}\n'.format(self.iris_filter))

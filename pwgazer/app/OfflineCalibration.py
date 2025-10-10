@@ -1280,6 +1280,7 @@ if __name__ == '__main__':
     conf = configuration()
     arg_parser = argparse.ArgumentParser(description='pwgazer offline calibration')
     arg_parser.add_argument('--camera-param', type=str, help='camera parameters file')
+    arg_parser.add_argument('--filter-param', type=str, help='filter parameters file')
     arg_parser.add_argument('--face-model', type=str, help='face model file')
     arg_parser.add_argument('--iris-detector', type=str, help='iris detector (ert, peak, enet or path to detector)')
     arg_parser.add_argument('--cal-info', type=str, help='calibration information file')
@@ -1289,7 +1290,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('--overwrite', action='store_true', help='overwrite output file (batch mode)')
     args = arg_parser.parse_args()
 
-    camera_param_file, face_model_file, iris_detector = load_pwgazer_config(conf, args)
+    camera_param_file, face_model_file, filter_param_file, iris_detector = load_pwgazer_config(conf, args)
 
     if iris_detector is None:
         sys.exit()

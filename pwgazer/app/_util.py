@@ -12,6 +12,7 @@ module_dir = Path(__file__).parent.parent
 def load_pwgazer_config(conf, args):
     camera_param_file = None
     face_model_file = None
+    filter_param_file = None
 
     appConfigDir = Path(pwgazer.configDir)
 
@@ -44,17 +45,29 @@ def load_pwgazer_config(conf, args):
         conf.load_face_model(str(cfgfile))
         face_model_file = str(cfgfile)
     else:
-        conf.load_face_model(face_model_file)
+        conf.load_face_model(args.face_model)
+
+    if args.filter_param is None:
+        cfgfile = appConfigDir/'FilterParam.cfg'
+        if not cfgfile.exists():
+            shutil.copy(module_dir/'core'/'resources'/'FilterParam.cfg',cfgfile)
+            print('info: default filter parameter file is created in {}.'.format(appConfigDir))
+        conf.load_filter_param(str(cfgfile))
+        filter_param_file = str(cfgfile)
+    else:
+        conf.load_filter_param(args.filter_param)
 
     if args.iris_detector is None:
         iris_detector = get_iris_detector(conf.iris_detector)
     else:
         iris_detector = get_iris_detector(args.iris_detector)
     
-    return camera_param_file, face_model_file, iris_detector
+    return camera_param_file, face_model_file, filter_param_file, iris_detector
+
 
 def get_pwgazer_config_dir():
     return pwgazer.configDir
+
 
 class recent_values(object):
     def __init__(self, shape):
@@ -78,7 +91,6 @@ class recent_values(object):
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
             return np.nanstd(self._values, axis=0)
-
 
 
 class CameraView(wx.StaticBitmap):
