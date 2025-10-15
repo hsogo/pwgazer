@@ -95,15 +95,15 @@ python -m pwgazer.app.OfflineCalibration
 The OfflineCalibration command has several options.  For example, CSV file, movie file and camear parameter configration file can be specified with command line options.
 
 ```
-python -m pwgazer.app.OfflineCalibration --movie=cal.mp4 --cal_info=cal.csv --camera_param=camera_parameteres.cfg
+python -m pwgazer.app.OfflineCalibration --movie=cal.mp4 --cal-info=cal.csv --camera-param=camera_parameteres.cfg
 ```
 
 Pwgazer requires 3D coordinates of facial feature points to estimate facial posture.
 These coordinate values are defined in the FaceModel.cfg file in pwgazer's configuration folder.
-To use other files, use --face_model option.
+To use other files, use --face-model option.
 
 ```
-python -m pwgazer.app.OfflineCalibration --face_model=my_facemodel.cfg
+python -m pwgazer.app.OfflineCalibration --face-model=my_facemodel.cfg
 ```
 
 The --iris_detector option specifies how the iris center is detected from the face image.  Three detectors, peak, ert, and enet are included in the pwgazer package.
@@ -112,15 +112,15 @@ The enet detector requires the most time for computation but has the most accura
 The ert detector This detector is in the middle in terms of speed and accuracy.
 
 ```
-python -m pwgazer.app.OfflineCalibration --iris_detector=enet
+python -m pwgazer.app.OfflineCalibration --iris-detector=enet
 ```
 
 Calibration result is saved to a file with a .npz extension (e.g. cal_param.npz).
 
-Batch mode is useful for processing multiple files at once.  In batch mode, calibration results can be output without any GUI manipulation.  Input movie file (--movie), calibration information (--cal_info), and output filename (--output) must be specified by commandline options.
+Batch mode is useful for processing multiple files at once.  In batch mode, calibration results can be output without any GUI manipulation.  Input movie file (--movie), calibration information (--cal-info), and output filename (--output) must be specified by commandline options.
 
 ```
-python -m pwgazer.app.OfflineCalibration --movie=cal.mp4 --cal_info=cal.csv --output=cal_param.npz --batch
+python -m pwgazer.app.OfflineCalibration --movie=cal.mp4 --cal-info=cal.csv --output=cal_param.npz --batch
 ```
 
 After the calibration result file is generated, the following command can be used to measure eye gaze for videos of the same participant in the same camera/screen configuration.  Most commandline options are common to the OfflineCalibration.
