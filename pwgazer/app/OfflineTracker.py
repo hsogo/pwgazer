@@ -70,7 +70,7 @@ class Offline_Tracker(wx.Frame):
         self.movie_frames = None
         self.movie_fps = None
 
-        self.debug_mode = True
+        self.debug_mode = debug_mode
 
         if iris_detector is None:
             raise RuntimeError('Offline_Tracker: iris_detector must be specified.')
