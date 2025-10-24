@@ -3,7 +3,6 @@ import argparse
 from pathlib import Path
 
 import cv2
-import dlib
 
 from ..core.config import config as configuration
 from ..app._util import load_pwgazer_config
@@ -50,33 +49,32 @@ if __name__ == '__main__':
             inv = 1.0/conf.downscaling_factor
             # recover rectangle size
             for i in range(len(dets)):
-                dets[i] = dlib.rectangle(int(dets[i].left()*inv), int(dets[i].top()*inv),
-                                        int(dets[i].right()*inv), int(dets[i].bottom()*inv))
+                dets[i].scale(inv)
 
         # TODO? support rvecs?
         face_rvec = None
         face_tvec = None
 
-        detect_face = False
+        face_detected = False
 
         # TODO: support area_of interest?
         """
         if self.area_of_interest is None:
             if len(dets) > 0:
-                detect_face = True
+                face_detected = True
                 target_idx = 0
         else:
             for target_idx in range(len(dets)):
                 if self.area_of_interest.contains(dets[target_idx]):
-                    detect_face = True
+                    face_detected = True
                     break
         """
         if len(dets) > 0:
-            detect_face = True
+            face_detected = True
             target_idx = 0
 
-        if detect_face: # face is found
-            detect_face = True
+        if face_detected: # face is found
+            face_detected = True
             rfp.write('----- Face Detection -----\nResult:success\n')
             
             # only first face is used

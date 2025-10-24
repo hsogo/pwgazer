@@ -1,6 +1,5 @@
 import numpy as np
 import warnings
-from dlib import rectangle as dlib_rect
 import os
 
 debug_mode = False
@@ -231,31 +230,62 @@ def get_filter(face_filter_type, face_filter_param, iris_filter_type, iris_filte
 
     return face_filter_rot, face_filter_tr, iris_filter_l, iris_filter_r
 
-def get_region_brightness_contrast(image, region, feature_region=None):
-    if isinstance(region, dlib_rect):
-        rt, rb, rl, rr = (region.top(), region.bottom(), region.left(), region.right())
-    else:
-        rt, rb, rl, rr = (region[1], region[1]+region[3], region[0], region[0]+region[2])
+def get_region_brightness_contrast(image, feature_region=None):
 
-    if feature_region is not None:
-        if isinstance(feature_region, dlib_rect):
-            ft,  fb, fl, fr = (feature_region.top(), feature_region.bottom(), feature_region.left(), feature_region.right())
-        else:
-            ft, fb, fl, fr = (feature_region[1], feature_region[1]+feature_region[3], feature_region[0], feature_region[0]+feature_region[2])
-        
-        rt += 0.75*(ft-rt)
-        rb += 0.75*(fb-rb)
-        rl += 0.75*(fl-rl)
-        rr += 0.75*(fr-rr)
+    rt, rb, rl, rr = (feature_region.top, feature_region.bottom, feature_region.left, feature_region.right)
     
-    rt, rb, rl, rr = map(int, (rt, rb, rl, rr))
-
+    rt -= int((rb-rt)*0.2)
+    rb += int((rb-rt)*0.2)
+    rl -= int((rr-rl)*0.2)
+    rr += int((rr-rl)*0.2)
+    
     region_image = image[rt:rb, rl:rr]
 
     #scene_average = np.mean(image)
     region_average = np.mean(region_image)
     region_rms_contrast = np.sqrt(np.mean((region_image - region_average) ** 2))
     
-    return region_average, region_rms_contrast, (rl, rt, rr-rl, rb-rt)
+    return region_average, region_rms_contrast, rect(rl, rt, rr-rl, rb-rt)
+
+
+class rect(object):
+    def __init__(self, left=0, top=0, width=0, height=0):
+        self.left = left
+        self.top = top
+        self.width =width
+        self.height = height
+
+        self.right = left+width
+        self.bottom = top+height
+    
+    def scale(self, s):
+        self.left = int(self.left * s)
+        self.top = int(self.top * s)
+        self.width = int(self.width * s)
+        self.height = int(self.height * s)
+
+        self.right = self.left+self.width
+        self.bottom = self.top+self.height
+
+    def get_ltwh(self):
+        return (self.left, self.top, self.width, self.height)
+
+    def get_ltrb(self):
+        return (self.left, self.top, self.right, self.bottom)
+    
+    def contains(self, target):
+        if isinstance(target, rect): # rectangle
+            if (self.left <= target.left) and (target.right <= self.right) and \
+               (self.top <= target.top) and (target.bottom <= self.bottom):
+                return True
+            else:
+                return False
+
+        else:
+            if (self.left <= target[0] <= self.right) and \
+               (self.top <= target[1] <= self.bottom):
+                return True
+            else:
+                return False
 
 

@@ -8,7 +8,6 @@ import datetime
 import argparse
 
 import cv2
-import dlib
 import numpy as np
 import wx
 import wx.lib.newevent
@@ -19,9 +18,9 @@ from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg, NavigationToolb
 
 from ..core.config import config as configuration
 from ..core.eye import eyedata
-from ..core.face import facedata, get_face_boxes, get_face_landmarks
+from ..core.face import facedata, detect_face, get_face_boxes
 from ..core.screen import screen
-from ..core.util import calc_gaze_position, get_filter
+from ..core.util import calc_gaze_position, get_filter, rect
 from ..core.data import calibrationdata
 from ._dialogs import (DlgAskopenfilename, DlgAsksaveasfilename, DlgAskyesno,
                         DlgShowerror, DlgShowinfo)
@@ -271,6 +270,8 @@ class gazeDetectionDialog(wx.Dialog):
         self.SetSizer(mainsizer)
         self.Fit()
 
+        self.raw_gaze = None
+
         self.running = True
         self.thread = threading.Thread(target=self.calibration_loop)
         self.thread.start()
@@ -300,42 +301,20 @@ class gazeDetectionDialog(wx.Dialog):
             _, frame = cap.read()
             frame_mono = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            if self.parent.downscaling_factor == 1.0: # original size
-                dets, _ = get_face_boxes(frame_mono, engine='dlib_hog')
-            else: # downscale camera image
-                dets, _ = get_face_boxes(cv2.resize(frame_mono, None, fx=self.parent.downscaling_factor, fy=self.parent.downscaling_factor), engine='dlib_hog') # detections, scores, weight_indices
-                inv = 1.0/self.parent.downscaling_factor
-                # recover rectangle size
-                for i in range(len(dets)):
-                    dets[i] = dlib.rectangle(int(dets[i].left()*inv), int(dets[i].top()*inv),
-                                            int(dets[i].right()*inv), int(dets[i].bottom()*inv))
-
-            detect_face = False
-            if self.parent.area_of_interest is None:
-                if len(dets) > 0:
-                    detect_face = True
-                    target_idx = 0
-            else:
-                for target_idx in range(len(dets)):
-                    if self.parent.area_of_interest.contains(dets[target_idx]):
-                        detect_face = True
-                        break
+            face_detected, landmarks, eyelids = detect_face(frame, scale=self.parent.downscaling_factor, aoi=self.parent.area_of_interest)
             
-            if detect_face: # face is found
-                # only first face is used
-                landmarks = get_face_landmarks(frame_mono, dets[target_idx])
-                
+            if face_detected: # face is found
                 # create facedata
-                face = facedata(landmarks, camera_matrix=self.parent.camera_matrix, face_model=self.parent.face_model,
+                face = facedata(landmarks, eyelids, camera_matrix=self.parent.camera_matrix, face_model=self.parent.face_model,
                     eye_params=self.parent.eye_params, prev_vec=(face_rvec, face_tvec), filter=(filter_face_rot, filter_face_tr))
 
                 # create eyedata
-                left_eye = eyedata(frame_mono, landmarks, eye='L', iris_detector=self.parent.iris_detector, filter=filter_iris_l)
-                right_eye = eyedata(frame_mono, landmarks, eye='R', iris_detector=self.parent.iris_detector, filter=filter_iris_r)
+                left_eye = eyedata(frame_mono, eyelids, eye='L', iris_detector=self.parent.iris_detector, filter=filter_iris_l)
+                right_eye = eyedata(frame_mono, eyelids, eye='R', iris_detector=self.parent.iris_detector, filter=filter_iris_r)
 
                 if not (left_eye.detected and right_eye.detected):
                     # Eyes are too close to the edges of the image
-                    detect_face = False
+                    face_detected = False
 
                 # save previous rvec and tvec
                 face_rvec = face.rotation_vector
@@ -348,12 +327,17 @@ class gazeDetectionDialog(wx.Dialog):
                     left_eye.draw_marker(frame)
                 if right_eye.detected:
                     right_eye.draw_marker(frame)
+            
+            if self.parent.area_of_interest is not None:
+                cv2.rectangle(frame, (self.parent.area_of_interest.left,self.parent.area_of_interest.top),
+                                    (self.parent.area_of_interest.right,self.parent.area_of_interest.bottom),
+                                    (0,255,255), thickness=2)
 
             im = cv2.resize(frame, (int(frame.shape[1]*self.parent.camera_view_scale),int(frame.shape[0]*self.parent.camera_view_scale)))
             bmp = wx.Bitmap.FromBuffer(im.shape[1], im.shape[0], cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
             self.camera_view.SetBitmap(bmp)
 
-            if not detect_face:
+            if not face_detected:
                 xL, yL, xR, yR = (np.nan, np.nan, np.nan, np.nan)
                 face = None
                 left_eye = None
@@ -371,7 +355,7 @@ class gazeDetectionDialog(wx.Dialog):
                     xR, yR = (np.nan, np.nan)
                 raw_gaze.append((current_frame, current_frame/self.parent.movie_fps, xL, yL, xR, yR))
 
-            self.parent.calibration_data.add_raw_data(face, left_eye, right_eye)
+                self.parent.calibration_data.add_raw_data(face, left_eye, right_eye)
 
         self.raw_gaze = np.array(raw_gaze)
         self.running = False
@@ -461,8 +445,8 @@ class calibrationResultsDialog(wx.Dialog):
         filename = DlgAsksaveasfilename(self, filetypes='Fitting results (*.npz)|*.npz')
         if filename != '':
             if self.parent.area_of_interest is not None:
-                aoi = (self.parent.area_of_interest.left(), self.parent.area_of_interest.top(),
-                        self.parent.area_of_interest.right(), self.parent.area_of_interest.bottom())
+                aoi = (self.parent.area_of_interest.left, self.parent.area_of_interest.top,
+                        self.parent.area_of_interest.right, self.parent.area_of_interest.bottom)
             else:
                 aoi = (np.nan, np.nan, np.nan, np.nan)
             np.savez(filename,
@@ -472,6 +456,8 @@ class calibrationResultsDialog(wx.Dialog):
                 max_error=self.results[2],
                 results_detail=self.results[3],
                 area_of_interest = aoi)
+            
+            DlgShowinfo(self, 'Saved', 'Calibration data is saved to {}'.format(filename))
 
 
 class dlgEditCalPoint(wx.Dialog):
@@ -781,7 +767,7 @@ class offline_calibration_app(wx.Frame):
             top = int(min(self.aoi_p0[1],p1[1]) / self.camera_view_scale)
             bottom = int(max(self.aoi_p0[1],p1[1]) / self.camera_view_scale)
             if (right-left) * (bottom-top) != 0:
-                self.area_of_interest =  dlib.rectangle(left, top, right, bottom)
+                self.area_of_interest =  rect(left, top, right-left, bottom-top)
             self.updating_aoi = False
 
             self.new_image(None)
@@ -794,7 +780,7 @@ class offline_calibration_app(wx.Frame):
             top = int(min(self.aoi_p0[1],p1[1]) / self.camera_view_scale)
             bottom = int(max(self.aoi_p0[1],p1[1]) / self.camera_view_scale)
             if (right-left) * (bottom-top) != 0:
-                self.area_of_interest =  dlib.rectangle(left, top, right, bottom)
+                self.area_of_interest =  rect(left, top, right-left, bottom-top)
             self.updating_aoi = False
 
             self.new_image(None)
@@ -1156,13 +1142,20 @@ class offline_calibration_app(wx.Frame):
             self.raw_gaze = dlg.raw_gaze
             dlg.Destroy()
         
+        # the dialog is aborted if raw_gaze is None
+        if self.raw_gaze is None or len(self.raw_gaze)==0:
+            self.buttonpanel.Enable(True)
+            for id in menu_items_all:
+                self.menu_bar.Enable(id, True)
+            DlgShowinfo(self, 'No calibration data', 'No calibration data.  The calibration appears to have been aborted.')
+            return
+        
         # skip gaze results dialog in batch mode
         if not self.batch_mode:
             dlg = gazeResultsDialog(self, self.raw_gaze)
             dlg.Destroy()
 
         num_calibration_points = self.calpoint_listbox.GetItemCount()
-        calibration_data = []
    
         for calpoint_idx in range(num_calibration_points):
             fidx = int(self.calpoint_listbox.GetItem(calpoint_idx, 0).GetText())
@@ -1177,8 +1170,8 @@ class offline_calibration_app(wx.Frame):
             dlg.Destroy()
         else:
             if self.area_of_interest is not None:
-                aoi = (self.area_of_interest.left(), self.area_of_interest.top(),
-                        self.area_of_interest.right(), self.area_of_interest.bottom())
+                aoi = (self.area_of_interest.left, self.area_of_interest.top,
+                        self.area_of_interest.right, self.area_of_interest.bottom)
             else:
                 aoi = (np.nan, np.nan, np.nan, np.nan)
             np.savez(self.output_file_for_offline,
@@ -1247,27 +1240,18 @@ class offline_calibration_app(wx.Frame):
             bottom = int(max(self.aoi_p0[1],p1[1]) / self.camera_view_scale)
             cv2.rectangle(im, (left, top),(right,bottom),(0,255,255), thickness=1)
         elif self.area_of_interest is not None:
-            cv2.rectangle(im, (self.area_of_interest.left(),self.area_of_interest.top()),
-                                (self.area_of_interest.right(),self.area_of_interest.bottom()),
+            cv2.rectangle(im, (self.area_of_interest.left,self.area_of_interest.top),
+                                (self.area_of_interest.right,self.area_of_interest.bottom),
                                 (0,255,255), thickness=2)
 
         if self.cb_detect_face.GetValue():
-            img = cv2.cvtColor(self.orig_img, cv2.COLOR_BGR2GRAY)
-            if self.downscaling_factor == 1.0: # original size
-                dets, _ = get_face_boxes(img, engine='dlib_hog')
-            else: # downscale camera image
-                dets, _ = get_face_boxes(cv2.resize(img, None, fx=self.downscaling_factor, fy=self.downscaling_factor), engine='dlib_hog') # detections, scores, weight_indices
-                inv = 1.0/self.downscaling_factor
-                # recover rectangle size
-                for i in range(len(dets)):
-                    dets[i] = dlib.rectangle(int(dets[i].left()*inv), int(dets[i].top()*inv),
-                                            int(dets[i].right()*inv), int(dets[i].bottom()*inv))
-
+            dets = get_face_boxes(im)
+            
             for fidx in range(len(dets)):
                 if self.area_of_interest is None or self.area_of_interest.contains(dets[fidx]):
-                    cv2.rectangle(im, (dets[fidx].left(),dets[fidx].top()), (dets[fidx].right(),dets[fidx].bottom()),(0,255,0),thickness=3)
+                    cv2.rectangle(im, (dets[fidx].left, dets[fidx].top), (dets[fidx].right,dets[fidx].bottom),(0,255,0),thickness=3)
                 else:
-                    cv2.rectangle(im, (dets[fidx].left(),dets[fidx].top()), (dets[fidx].right(),dets[fidx].bottom()),(0,0,255),thickness=3)
+                    cv2.rectangle(im, (dets[fidx].left, dets[fidx].top), (dets[fidx].right,dets[fidx].bottom),(0,0,255),thickness=3)
 
         im = cv2.resize(im, (int(im.shape[1]*self.camera_view_scale),int(im.shape[0]*self.camera_view_scale)))
 

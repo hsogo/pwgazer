@@ -2,9 +2,6 @@ import os
 # import datetime
 
 import numpy as np
-
-#from .eye import eyedata, eye_filter
-#from .face import facedata, get_face_boxes, get_face_landmarks
 from .util import calc_gaze_position, get_gaze_vector
 
 class gazedata(object):

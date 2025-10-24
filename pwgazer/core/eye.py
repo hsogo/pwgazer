@@ -26,30 +26,34 @@ class eyedata(object):
     detected = False
     """
 
-    def __init__(self, orig_img, landmarks, eye, margin=0.3, blink_threshold=0.1, image_width=256, iris_detector=None, filter=None):
+    def __init__(self, orig_img, eyelid_points, eye, margin=0.3, blink_threshold=0.1, image_width=256, iris_detector=None, filter=None):
         if iris_detector is None:
             raise RuntimeError('iris_detector must be specified.')
         self.iris_detector = iris_detector
         self.iris_center = None
         self.iris_radius = None
 
+        '''
+        eyelid_points[0:6]: left eyelid
+        eyelid_points[6:12]: right eyelid
+        '''
         if eye == 'R':
-            self.eyelid_points_orig = np.array(landmarks[36:42])
-            (x, y, w, h) = cv2.boundingRect(np.array(landmarks[36:42])) # crop right eye
-            self.eyelid_ends = np.array((landmarks[36], landmarks[39]))
-            self.eyelid_top = np.array((landmarks[37],landmarks[38]))
-            self.eyelid_bottom = np.array((landmarks[41],landmarks[40]))
+            self.eyelid_points_orig = eyelid_points[6:12,:]
+            (x, y, w, h) = cv2.boundingRect(eyelid_points[6:12,:]) # crop right eye
+            self.eyelid_ends = np.array((eyelid_points[6,:], eyelid_points[9,:]))
+            self.eyelid_top = np.array((eyelid_points[7,:],eyelid_points[8,:]))
+            self.eyelid_bottom = np.array((eyelid_points[10,:],eyelid_points[11,:]))
             self.eyelid_points = np.copy(self.eyelid_points_orig)
         elif eye == 'L':
-            self.eyelid_points_orig = np.array(landmarks[42:48])
-            (x, y, w, h) = cv2.boundingRect(np.array(landmarks[42:48])) # crop left eye
-            self.eyelid_ends = np.array((landmarks[42], landmarks[45]))
-            self.eyelid_top = np.array((landmarks[43],landmarks[44]))
-            self.eyelid_bottom = np.array((landmarks[47],landmarks[46]))
+            self.eyelid_points_orig = eyelid_points[0:6,:]
+            (x, y, w, h) = cv2.boundingRect(eyelid_points[0:6,:]) # crop left eye
+            self.eyelid_ends = np.array((eyelid_points[0,:], eyelid_points[3,:]))
+            self.eyelid_top = np.array((eyelid_points[1,:],eyelid_points[2,:]))
+            self.eyelid_bottom = np.array((eyelid_points[4,:],eyelid_points[5,:]))
             self.eyelid_points = np.copy(self.eyelid_points_orig)
         else:
             raise ValueError('Eye must be L or R.')
-        
+
         self.eye = eye
         self.blink_threshold = blink_threshold
         self.image_width = image_width
@@ -76,14 +80,17 @@ class eyedata(object):
         self.image_scale = float(self.image_width) / tmp_image.shape[1]
         self.image = stretch(cv2.resize(tmp_image, (self.image_width, self.image_height), interpolation=cv2.INTER_LINEAR))
 
-        #rescale
+        # rescale
         self.eyelid_ends = ((self.eyelid_ends - self.image_origin) * self.image_scale).astype(np.int64)
         self.eyelid_top = ((self.eyelid_top - self.image_origin) * self.image_scale).astype(np.int64)
         self.eyelid_bottom = ((self.eyelid_bottom - self.image_origin) * self.image_scale).astype(np.int64)
         self.eyelid_points = np.vstack((self.eyelid_ends, self.eyelid_top, self.eyelid_bottom))
         self.palpebral_fissure_length = np.linalg.norm(self.eyelid_ends[1]-self.eyelid_ends[0])
 
+        # EAR (for blink detection)
         self.eye_aspect_ratio = self.get_eye_aspect_ratio()
+
+        # detect iris
         self.iris_detector(self)  # "self" is necessary because iris_detector is not the method of this class.
 
         if self.iris_center is not None:
@@ -93,6 +100,7 @@ class eyedata(object):
         if filter is not None:
             self.normalized_iris_center = filter.update(self.normalized_iris_center)
 
+        # detect blink
         self.blink_detector()
 
         self.detected = True
@@ -170,7 +178,7 @@ class eyedata(object):
         # Dlib: red
         for p in self.eyelid_points_orig:
             cv2.circle(eye_image, (int((p[0]-self.image_origin[0])*self.image_scale), int((p[1]-self.image_origin[1])*self.image_scale)), 1, (0, 0, 255), -1)
-            #cv2.circle(eye_image, (p[0], p[1]), 1, (0, 0, 255), -1)
+        #    #cv2.circle(eye_image, (p[0], p[1]), 1, (0, 0, 255), -1)
         # Refit: Green
         for p in self.eyelid_points:
             cv2.circle(eye_image, (p[0], p[1]), 2, (0, 255, 0), -1)

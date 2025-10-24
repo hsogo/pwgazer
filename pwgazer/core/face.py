@@ -2,34 +2,24 @@ import numpy as np
 import cv2
 import dlib
 from pathlib import Path
-from .util import get_euler_angles, get_rotation_matrix
-# from pykalman import KalmanFilter
+from .util import get_euler_angles, get_rotation_matrix, rect
+try:
+    import mediapipe as mp
+    facemesh = mp.solutions.face_mesh.FaceMesh(
+        static_image_mode=False,
+        max_num_faces=3,
+        refine_landmarks=True,
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5)
+except:
+    pass
 
-facedetection_engines = ['dlib_hog']
+facedetection_engines = ['dlib_hog', 'mediapipe_facemesh']
 
 module_dir = Path(__file__).parent
 
 dlib_face_detector = dlib.get_frontal_face_detector()
 dlib_face_predictor = dlib.shape_predictor(str(module_dir/'resources'/'shape_predictor_68_face_landmarks.dat'))
-
-"""
-try:
-    import cv2.face
-    cv2_face_detector = cv2.dnn.readNetFromCaffe(str(module_dir/'resources'/'deploy.prototxt.txt'),
-                                                str(module_dir/'resources'/'res10_300x300_ssd_iter_140000.caffemodel'))
-    facedetection_engines.append('cv2_dnn')
-except:
-    #print('OpenCV DNN face detector is not available.')
-    pass
-"""
-
-transition_matrix = [[ 1,1,0,0 ],
-                     [ 0,1,0,0 ],
-                     [ 0,0,1,1 ],
-                     [ 0,0,0,1 ]]
-
-observation_matrix = [[ 1,0,0,0 ],
-                      [ 0,0,1,0 ]]
 
 # 3D face model points.
 default_face_model = np.array([
@@ -60,37 +50,156 @@ default_eye_params = np.array([
 n_face_model = default_face_model.shape[0]
 FACE_CONFIDENCE_THRESHOLD = 0.5
 
-def get_face_boxes(frame, engine='dlib_hog'):
-    if engine not in facedetection_engines:
-        raise ValueError('{} is not supported. available engines are: {}'.format(engine, facedetection_engines))
-    
+def detect_face(frame, engine='mediapipe_facemesh', aoi=None, scale=1.0):
+
     if engine == 'dlib_hog':
-        detections, scores, _ = dlib_face_detector.run(frame, 0) # detections, scores, weight_indices
-        return detections, scores
-    
-    """
-    elif engine == 'cv2_dnn'
-        blob = cv2.dnn.blobFromImage(cv2.resize(frame, (300, 300)), 1.0, (300, 300) )#, (104.0, 177.0, 123.0))
-        (h, w) = frame.shape[:2]
-        cv2_face_detector.setInput(blob)
-        detections = cv2_face_detector.forward()
-        detections = []
-        scores = []
-        for i in range(0, detections.shape[2]):
-            confidence = detections[0, 0, i, 2]
-            if confidence < FACE_CONFIDENCE_THRESHOLD:
-                continue
-            box = (detections[0, 0, i, 3:7] * np.array([w, h, w, h])).astype(np.int32)
-            detections.append(dlib.rectangle(box[0], box[1], box[2], box[3]))
-            scores.append(confidence)
+        # monochrome
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # prepare scaled image
+        if scale == 1.0:
+            scaled_frame = frame
+        else:
+            scaled_frame = cv2.resize(frame, None, fx=scale, fy=scale)
+
+        # detect faces
+        dlib_dets, _, _ = dlib_face_detector.run(scaled_frame, 0) # detections, scores, weight_indices
+        # convert dlib.rectangle to rect
+        detections = [rect(d.left(), d.top(), d.right()-d.left(), d.bottom()-d.top()) for d in dlib_dets]
+
+        # restore rectangles if scaled
+        if scale != 0:
+            for r in detections:
+                r.scale(1/scale)
+
+        # check whether faces are in AOI
+        face_detected = False
+        if aoi is None:
+            if len(detections) > 0:
+                face_detected = True
+                target_idx = 0
+        else:
+            for target_idx in range(len(detections)):
+                if aoi.contains(detections[target_idx]):
+                    face_detected = True
+                    break
         
-        return detections, scores
-    """
+        if face_detected:
+            shape = dlib_face_predictor(frame, dlib_dets[target_idx])
+            '''
+            30: Nose tip
+            45: Left eye left (outer) corner
+            42: Left eye right (inner) corner
+            39: Right eye left (inner) corner
+            36: Right eye right (outer) corner
+            54: Left mouth corner
+            48: Right mouth corner
+            33: Subnasale
+            27: Nose root
+            '''
+            fitting_points = np.zeros((n_face_model,2), dtype=np.float32)
+            for i,j in enumerate([30,45,42,39,36,54,48,33,27]):
+                fitting_points[i] = (shape.part(j).x, shape.part(j).y)
+
+            '''
+            42-47: Left eyelid (clockwize viewing from the front of the face)
+            36-41: Right eyelid (clockwize viewing from the front of the face)
+            '''
+            eyelid_points = np.zeros((12,2), dtype=np.float32)
+            for i,j in enumerate([42,43,44,45,46,47,36,37,38,39,40,41]):
+                eyelid_points[i] = (shape.part(j).x, shape.part(j).y)
+
+            return True, fitting_points, eyelid_points
+
+        else:
+            return False, None, None
+    
+    elif engine == 'mediapipe_facemesh':
+        # Because facemesh returns landmarks directly, "scale" parameter is ignored.
+        fm_results = facemesh.process(frame)
+
+        if fm_results.multi_face_landmarks is None:
+            return False, None, None
+
+        detections = []
+        eyelids_detections = []
+        for lm in fm_results.multi_face_landmarks:
+            '''
+            4:   Nose tip
+            263: Left eye left (outer) corner
+            362: Left eye right (inner) corner
+            133: Right eye left (inner) corner
+            33:  Right eye right (outer) corner
+            375: Left mouth corner
+            61:  Right mouth corner
+            2:   Subnasale
+            168: Nose root
+            '''
+            fitting_points = np.zeros((n_face_model,2),dtype=np.float32)
+            for i, j in enumerate([4, 263, 362, 133, 33, 375, 61, 2, 168]):
+                fitting_points[i] = (int(lm.landmark[j].x*frame.shape[1]), int(lm.landmark[j].y*frame.shape[0]))
+            detections.append(fitting_points)
+
+            '''
+            362, 384, 387, 263, 373, 380: Left eyelid (clockwize viewing from the front of the face)
+            33, 160, 157, 133, 153, 144: Right eyelid (clockwize viewing from the front of the face)
+            '''
+            eyelid_points = np.zeros((12,2),dtype=np.float32)
+            for i, j in enumerate([362, 384, 387, 263, 373, 380, 33, 160, 157, 133, 153, 144]):
+                eyelid_points[i] = (int(lm.landmark[j].x*frame.shape[1]), int(lm.landmark[j].y*frame.shape[0]))
+            eyelids_detections.append(eyelid_points)
+
+        # check whether faces are in AOI
+        face_detected = False
+        if aoi is None:
+            if len(detections) > 0:
+                face_detected = True
+                target_idx = 0
+        else:
+            for target_idx in range(len(detections)):
+                xmin = detections[target_idx][:,0].min()
+                xmax = detections[target_idx][:,0].max()
+                ymin = detections[target_idx][:,1].min()
+                ymax = detections[target_idx][:,1].max()
+                if aoi.contains(rect(xmin, ymin, xmax-xmin, ymax-ymin)):
+                    face_detected = True
+                    break
+        
+        if face_detected:
+            return True, detections[target_idx], eyelids_detections[target_idx]
+
+        else:
+            return False, None, None
+
+    else:
+        raise ValueError('{} is not supported. available engines are: {}'.format(engine, facedetection_engines))
 
 
-def get_face_landmarks(frame, detection):
-    shape = dlib_face_predictor(frame, detection)
-    return np.array([(shape.part(ii).x, shape.part(ii).y) for ii in range(shape.num_parts)])
+def get_face_boxes(frame, engine='dlib_hog'):
+   
+    if engine == 'dlib_hog':
+        dets, _, _ = dlib_face_detector.run(frame, 0) # detections, scores, weight_indices
+        detections = [rect(d.left(), d.top(), d.right()-d.left(), d.bottom()-d.top()) for d in dets]
+        return detections
+    
+    elif engine == 'mediapipe_facemesh':
+        fm_results = facemesh.process(frame)
+        detection = []
+        for fm in fm_results.multi_face_landmarks:
+            px, py = [], []
+            for lm in fm.landmark:
+                px.append(int(lm.x * frame.shape[1]))
+                py.append(int(lm.y * frame.shape[0]))
+            xmin = np.min(px)
+            xmax = np.max(px)
+            ymin = np.min(py)
+            ymax = np.max(py)
+            detection.append(rect(xmin, ymin, xmax-xmin, ymax-ymin))
+        return detection
+
+    else:
+        raise ValueError('{} is not supported. available engines are: {}'.format(engine, facedetection_engines))
+
 
 
 class facedata(object):
@@ -120,7 +229,7 @@ class facedata(object):
                              )
     dist_coeffs = np.zeros((4,1)) # no lens distortion
     
-    def __init__(self, landmarks, camera_matrix=None, dist_coeffs=None, face_model=None, eye_params=None, prev_vec=(None, None), filter=(None, None)):
+    def __init__(self, landmarks, eyelid_points, camera_matrix=None, dist_coeffs=None, face_model=None, eye_params=None, prev_vec=(None, None), filter=(None, None)):
         """
         Initialize face model.
 
@@ -140,8 +249,6 @@ class facedata(object):
         filter_rot = filter[0]
         filter_tr = filter[1]
 
-        # set landmarks
-        self.landmarks = landmarks
         self.face_model = face_model
         self.eye_diameter = eye_params[0]
         self.eye_offset_L = eye_params[1:4]
@@ -150,17 +257,8 @@ class facedata(object):
         self.left_eye_center = (face_model[1] + face_model[2])/2.0 + self.eye_offset_L
         self.right_eye_center = (face_model[3] + face_model[4])/2.0 + self.eye_offset_R
 
-        self.fitting_pts = np.zeros((n_face_model,2))
-        self.fitting_pts[0] = self.landmarks[30] # Nose tip (self.landmarks[32]+self.landmarks[33])/2.0
-        self.fitting_pts[1] = self.landmarks[45] # Left eye left (outer) corner
-        self.fitting_pts[2] = self.landmarks[42] # Left eye right (inner) corner
-        self.fitting_pts[3] = self.landmarks[39] # Right eye left (inner) corner
-        self.fitting_pts[4] = self.landmarks[36] # Right eye right (outer) corner
-        self.fitting_pts[5] = self.landmarks[54] # Left mouth corner
-        self.fitting_pts[6] = self.landmarks[48] # Right mouth corner
-        self.fitting_pts[7] = self.landmarks[33] # subnasale
-        self.fitting_pts[8] = self.landmarks[27] # nose root
-
+        self.fitting_pts = landmarks
+        self.eyelid_pts = eyelid_points
 
         if camera_matrix is not None:
             self.camera_matrix = camera_matrix
@@ -223,8 +321,8 @@ class facedata(object):
         self.right_eye_camera_coord = np.dot(self.rotation_matrix, self.right_eye_center.reshape(3,1)) + self.translation_vector
 
     def draw_eyelids_landmarks(self, image):
-        for (x, y) in self.landmarks[36:48]:
-            cv2.circle(image, (x, y), 1, (0, 0, 255), -1)
+        for (x, y) in self.eyelid_pts:
+            cv2.circle(image, (int(x), int(y)), 1, (0, 0, 255), -1)
     
     def draw_marker(self, image):
         for p in self.fitting_pts:

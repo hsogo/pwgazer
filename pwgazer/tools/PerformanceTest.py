@@ -5,9 +5,9 @@ import cv2
 import argparse
 import codecs
 from ..core import config
-from ..core.face import get_face_boxes, get_face_landmarks, facedata
+from ..core.face import facedata, detect_face
 from ..core.eye import eyedata
-from ..core.util import calc_gaze_position
+from ..core.util import calc_gaze_position, rect
 from ..core.screen import screen
 from ..core.util import get_region_brightness_contrast
 
@@ -80,28 +80,23 @@ if __name__ == '__main__':
             frame = frame.astype(dtype)
         frame_mono = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        dets, scores = get_face_boxes(frame_mono, engine='dlib_hog')
-        if len(dets) > 0: # face is found
-            detect_face = True
-            
-            # only first face is used
-            landmarks = get_face_landmarks(frame_mono, dets[0])
+        face_detected, landmarks, eyelids = detect_face(frame)
 
-            
+        if face_detected:
             # create facedata
-            face = facedata(landmarks, conf.camera_matrix, conf.dist_coeffs, conf.face_model)
+            face = facedata(landmarks, eyelids, conf.camera_matrix, conf.dist_coeffs, conf.face_model)
             # calculate brightness and contrast
             fp_rect = cv2.boundingRect(face.fitting_pts.astype(np.int32))
-            region_average, region_rms_contrast, target_rect = get_region_brightness_contrast(frame_mono, dets[0], fp_rect)
+            region_average, region_rms_contrast, target_rect = get_region_brightness_contrast(frame_mono, rect(*fp_rect))
 
             line = '{},'.format(f) # Image file
-            line += '{},'.format(scores[0]) # Score
+            line += ',' # Score is obsolate
             line += '{},{},{},'.format(*(180*face.euler_angles/np.pi)) # rX, rY, rZ
             line += '{},{},{},'.format(*np.ravel(face.translation_vector)) # tX, tY, tZ
 
             # create eyedata
-            left_eye = eyedata(frame_mono, landmarks, eye='L', iris_detector=iris_detector)
-            right_eye = eyedata(frame_mono, landmarks, eye='R', iris_detector=iris_detector)
+            left_eye = eyedata(frame_mono, eyelids, eye='L', iris_detector=iris_detector)
+            right_eye = eyedata(frame_mono, eyelids, eye='R', iris_detector=iris_detector)
 
             # normalized cood
             if not left_eye.blink:
@@ -139,10 +134,10 @@ if __name__ == '__main__':
 
             face.draw_marker(frame)
             face.draw_eyelids_landmarks(frame)
-            cv2.rectangle(frame, (target_rect[0],target_rect[1]), (target_rect[0]+target_rect[2],target_rect[1]+target_rect[3]),
+            cv2.rectangle(frame, (target_rect.left, target_rect.top), (target_rect.right, target_rect.bottom),
                           (255, 255, 0), 1, cv2.LINE_AA)
             cv2.putText(frame, 'RA:{:.1f},CNT:{:.1f}'.format(region_average, region_rms_contrast),
-                        (dets[0].left(), dets[0].top()), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255))
+                        (target_rect.left, target_rect.top), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255))
 
         else: #face not found
             if output_to_file:

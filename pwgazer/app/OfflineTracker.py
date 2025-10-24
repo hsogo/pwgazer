@@ -7,7 +7,6 @@ import time
 from pathlib import Path
 
 import cv2
-import dlib
 import numpy as np
 import wx
 import wx.lib.newevent
@@ -15,9 +14,9 @@ import wx.lib.newevent
 from ..core.config import config as configuration
 from ..core.data import gazedata
 from ..core.eye import eyedata
-from ..core.face import facedata, get_face_boxes, get_face_landmarks
+from ..core.face import facedata, detect_face
 from ..core.screen import screen
-from ..core.util import get_filter
+from ..core.util import get_filter, rect
 from ._dialogs import (DlgAskopenfilename, DlgAskyesno,
                         DlgAsksaveasfilename, DlgShowerror, DlgShowinfo)
 from ._util import load_pwgazer_config, CameraView
@@ -315,8 +314,8 @@ class Offline_Tracker(wx.Frame):
                 #draw AOI
                 self.orig_img = im.copy()
                 if self.area_of_interest is not None:
-                    cv2.rectangle(im, (self.area_of_interest.left(),self.area_of_interest.top()),
-                                        (self.area_of_interest.right(),self.area_of_interest.bottom()),
+                    cv2.rectangle(im, (self.area_of_interest.left,self.area_of_interest.top),
+                                        (self.area_of_interest.right,self.area_of_interest.bottom),
                                         (0,255,255), thickness=2)
 
                 im = self.get_preview_image(im, None, None)
@@ -418,7 +417,7 @@ class Offline_Tracker(wx.Frame):
             self.calibration_accuracy = data['accuracy']
             self.calibration_precision = data['precision']
             aoi = data['area_of_interest']
-            self.area_of_interest = dlib.rectangle(*aoi) if not np.isnan(aoi[0]) else None
+            self.area_of_interest = rect(aoi[0], aoi[1], aoi[2]-aoi[0], aoi[3]-aoi[1]) if not np.isnan(aoi[0]) else None
             # max_error, results_detail
         except:
             if self.batch_mode:
@@ -526,7 +525,7 @@ class Offline_Tracker(wx.Frame):
                 right = self.config.camera_resolution_h-1
 
             if (right-left) * (bottom-top) != 0:
-                self.area_of_interest =  dlib.rectangle(left, top, right, bottom)
+                self.area_of_interest =  rect(left, top, right-left, bottom-top)
             self.updating_aoi = False
 
             self.aoi_update()
@@ -546,7 +545,7 @@ class Offline_Tracker(wx.Frame):
                 right = self.config.camera_resolution_h-1
 
             if (right-left) * (bottom-top) != 0:
-                self.area_of_interest =  dlib.rectangle(left, top, right, bottom)
+                self.area_of_interest =  rect(left, top, right-left, bottom-top)
             self.updating_aoi = False
 
             self.aoi_update()
@@ -586,8 +585,8 @@ class Offline_Tracker(wx.Frame):
             return
         im = self.orig_img.copy()
         if self.area_of_interest is not None:
-            cv2.rectangle(im, (self.area_of_interest.left(),self.area_of_interest.top()),
-                                (self.area_of_interest.right(),self.area_of_interest.bottom()),
+            cv2.rectangle(im, (self.area_of_interest.left,self.area_of_interest.top),
+                                (self.area_of_interest.right,self.area_of_interest.bottom),
                                 (0,255,255), thickness=2)
 
         im = self.get_preview_image(im, None, None)
@@ -665,7 +664,6 @@ class Offline_Tracker(wx.Frame):
         return canvas
     
     def main_loop(self):
-        detect_face = False
         while self.run_main_loop:
             if not self.run_offline_recording:
                 time.sleep(1.0)
@@ -681,55 +679,33 @@ class Offline_Tracker(wx.Frame):
                 reye_img = None
                 leye_img = None
                 
-                if self.downscaling_factor == 1.0: # original size
-                    dets, _ = get_face_boxes(frame_mono, engine='dlib_hog')
-                else: # downscale camera image
-                    dets, _ = get_face_boxes(cv2.resize(frame_mono, None, fx=self.downscaling_factor, fy=self.downscaling_factor), engine='dlib_hog') # detections, scores, weight_indices
-                    inv = 1.0/self.downscaling_factor
-                    # recover rectangle size
-                    for i in range(len(dets)):
-                        dets[i] = dlib.rectangle(int(dets[i].left()*inv), int(dets[i].top()*inv),
-                                                int(dets[i].right()*inv), int(dets[i].bottom()*inv))
+                face_detected, landmarks, eyelids = detect_face(frame, scale=self.downscaling_factor)
 
-                detect_face = False
-                if self.area_of_interest is None:
-                    if len(dets) > 0:
-                        detect_face = True
-                        target_idx = 0
-                else:
-                    for target_idx in range(len(dets)):
-                        if self.area_of_interest.contains(dets[target_idx]):
-                            detect_face = True
-                            break
-
-                if detect_face: # face is found
-                    detect_face = True
-                    
-                    # only first face is used
-                    landmarks = get_face_landmarks(frame_mono, dets[target_idx])
+                if face_detected: # face is found
+                    face_detected = True
                     
                     # create facedata
-                    face = facedata(landmarks, camera_matrix=self.camera_matrix, face_model=self.face_model,
+                    face = facedata(landmarks, eyelids, camera_matrix=self.camera_matrix, face_model=self.face_model,
                         eye_params=self.eye_params, prev_vec=(self.face_rvec, self.face_tvec), filter=(self.filter_face_rot, self.filter_face_tr))
 
                     # create eyedata
-                    left_eye = eyedata(frame_mono, landmarks, eye='L', iris_detector=self.iris_detector, filter=self.filter_iris_l)
-                    right_eye = eyedata(frame_mono, landmarks, eye='R', iris_detector=self.iris_detector, filter=self.filter_iris_r)
+                    left_eye = eyedata(frame_mono, eyelids, eye='L', iris_detector=self.iris_detector, filter=self.filter_iris_l)
+                    right_eye = eyedata(frame_mono, eyelids, eye='R', iris_detector=self.iris_detector, filter=self.filter_iris_r)
 
                     if not (left_eye.detected and right_eye.detected):
                         # Eyes are too close to the edges of the image
-                        detect_face = False
+                        face_detected = False
 
                     # save previous rvec and tvec
                     self.face_rvec = face.rotation_vector
                     self.face_tvec = face.translation_vector
 
                 else: # face is not found
-                    detect_face = False
+                    face_detected = False
                     self.face_rvec = None
                     self.face_tvec = None
                 
-                if detect_face:
+                if face_detected:
                     if self.data is not None:
                         self.data.append_data(self.capture_time, face, left_eye, right_eye, self.screen, self.fitting_param)
 
@@ -742,11 +718,11 @@ class Offline_Tracker(wx.Frame):
                 # render image
 
                 if self.area_of_interest is not None:
-                    cv2.rectangle(frame, (self.area_of_interest.left(),self.area_of_interest.top()),
-                                        (self.area_of_interest.right(),self.area_of_interest.bottom()),
+                    cv2.rectangle(frame, (self.area_of_interest.left,self.area_of_interest.top),
+                                        (self.area_of_interest.right,self.area_of_interest.bottom),
                                         (0,255,255), thickness=2)
 
-                if detect_face:
+                if face_detected:
                     if not left_eye.blink:
                         #left_eye.draw_marker(frame)
                         leye_img = left_eye.draw_marker_on_eye_image()
