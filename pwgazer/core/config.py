@@ -1,5 +1,6 @@
 import configparser
 import numpy as np
+import os
 
 application_params = [
     'IRIS_DETECTOR',
@@ -97,6 +98,8 @@ class config(object):
         self.filter_param_file = ''
 
     def load_application_param(self, filename):
+        if not os.path.isfile(filename):
+            raise RuntimeError('Configuration file ({}) is not found.'.format(filename))
         cfgp = configparser.ConfigParser()
         cfgp.optionxform = str
         cfgp.read(filename)
@@ -135,6 +138,8 @@ class config(object):
         self.application_param_file = filename
 
     def load_camera_param(self, filename):
+        if not os.path.isfile(filename):
+            raise RuntimeError('Configuration file ({}) is not found.'.format(filename))
         cfgp = configparser.ConfigParser()
         cfgp.optionxform = str
         cfgp.read(filename)
@@ -191,6 +196,8 @@ class config(object):
         self.camera_param_file = filename
 
     def load_face_model(self, filename):
+        if not os.path.isfile(filename):
+            raise RuntimeError('Configuration file ({}) is not found.'.format(filename))
         cfgp = configparser.ConfigParser()
         cfgp.optionxform = str
         cfgp.read(filename)
@@ -228,6 +235,8 @@ class config(object):
 
 
     def load_filter_param(self, filename):
+        if not os.path.isfile(filename):
+            raise RuntimeError('Configuration file ({}) is not found.'.format(filename))
         cfgp = configparser.ConfigParser()
         cfgp.optionxform = str
         cfgp.read(filename)
