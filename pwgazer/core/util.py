@@ -240,6 +240,9 @@ def get_region_brightness_contrast(image, feature_region=None):
     rr += int((rr-rl)*0.2)
     
     region_image = image[rt:rb, rl:rr]
+    # if the face is too close to the edges of the image, return np.nan
+    if region_image.size == 0:
+        return np.nan, np.nan, None
 
     #scene_average = np.mean(image)
     region_average = np.mean(region_image)

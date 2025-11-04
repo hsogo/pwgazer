@@ -579,7 +579,6 @@ class Tracker(wx.Frame):
                         fp_rect = rect(*cv2.boundingRect(face.fitting_pts.astype(np.int32)))
                         region_average, region_rms_contrast, target_rect = get_region_brightness_contrast(frame_mono, fp_rect)
 
-
                     # create eyedata
                     left_eye = eyedata(frame_mono, eyelids, eye='L', iris_detector=self.iris_detector, filter=self.filter_iris_l)
                     right_eye = eyedata(frame_mono, eyelids, eye='R', iris_detector=self.iris_detector, filter=self.filter_iris_r)
@@ -649,7 +648,8 @@ class Tracker(wx.Frame):
                         face.draw_marker(frame)
                         face.draw_eyelids_landmarks(frame)
 
-                        if not self.in_recording:
+                        if not self.in_recording and region_average is not np.nan:
+                            # if face is too close to the edge of the image, region_average and region_rms_contrast is np.nan
                             frame_color = (255, 255, 255) if region_rms_contrast > 10.0 else (63, 63, 255)
                             cv2.rectangle(frame, (target_rect.left,target_rect.top), (target_rect.right,target_rect.bottom),
                                         frame_color, 1, cv2.LINE_AA)
