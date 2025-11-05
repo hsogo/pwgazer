@@ -28,7 +28,8 @@ class eyedata(object):
 
     def __init__(self, orig_img, eyelid_points, eye, margin=0.3, blink_threshold=0.1, image_width=256, iris_detector=None, filter=None):
         if iris_detector is None:
-            raise RuntimeError('iris_detector must be specified.')
+            msg = 'iris_detector must be specified.'
+            raise RuntimeError(msg)
         self.iris_detector = iris_detector
         self.iris_center = None
         self.iris_radius = None
@@ -52,7 +53,8 @@ class eyedata(object):
             self.eyelid_bottom = np.array((eyelid_points[4,:],eyelid_points[5,:]))
             self.eyelid_points = np.copy(self.eyelid_points_orig)
         else:
-            raise ValueError('Eye must be L or R.')
+            msg = 'Eye must be L or R.'
+            raise ValueError(msg)
 
         self.eye = eye
         self.blink_threshold = blink_threshold

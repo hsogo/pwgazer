@@ -18,7 +18,8 @@ if __name__ == '__main__':
     arg_parser.add_argument('-f', '--face-model', type=str, help='face model file')
     arg_parser.add_argument('-c', '--camera-caldata', type=str, help='camera calibration file')
     arg_parser.add_argument('-o', '--output', type=str, help='output file')
-    arg_parser.add_argument('-d', '--detector', type=str, help='iris detector')
+    arg_parser.add_argument('--face_detector', type=str, help='face detector (mediapipe, dlib)')
+    arg_parser.add_argument('--iris-detector', type=str, help='iris detector (ert, peak, enet)')
     arg_parser.add_argument('--image-gain', type=float, help='pixel values are multiplied by this value')
     arg_parser.add_argument('--noise-sigma', type=float, help='sigma of Gaussian random noise')
     args = arg_parser.parse_args()
@@ -51,9 +52,9 @@ if __name__ == '__main__':
         outfp.write('Image,Score,rX,rY,rZ,tX,tY,tZ,nLX,nLY,nRX,nRY,LX,LY,RX,RY\n')
         output_to_file = True
     
-    if args.detector == 'enet':
+    if args.iris_detector == 'enet':
         from ..core.iris_detectors.enet_detector import enet_detector as iris_detector
-    elif args.detector == 'peak':
+    elif args.iris_detector == 'peak':
         from ..core.iris_detectors.peak_detector import peak_detector as iris_detector
     else: #default = ert detector
         from ..core.iris_detectors.ert_detector import ert_detector as iris_detector

@@ -62,7 +62,13 @@ def load_pwgazer_config(conf, args):
     else:
         iris_detector = get_iris_detector(args.iris_detector)
     
-    return camera_param_file, face_model_file, filter_param_file, iris_detector
+    if args.face_detector is None:
+        face_detector = conf.face_detector
+    else:
+        face_detector = args.face_detector
+
+    return camera_param_file, face_model_file, filter_param_file, face_detector, iris_detector
+
 
 
 def get_pwgazer_config_dir():

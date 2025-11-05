@@ -18,7 +18,8 @@ input_height = 128
 
 def enet_detector(eyedata, debug=False):
     if eyedata.image.shape != (input_height, input_width):
-        raise ValueError('Image size must be {}'.format((input_height*2, input_width)))
+        msg = 'Image size must be {}'.format((input_height*2, input_width))
+        raise ValueError(msg)
 
     eyelid_w = eyedata.eyelid_ends[1,0]-eyedata.eyelid_ends[0,0]
     iris_cand_min = eyelid_w/4  # iris should be wider than 1/4 of eyelid_w

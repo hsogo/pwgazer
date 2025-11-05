@@ -301,7 +301,7 @@ class gazeDetectionDialog(wx.Dialog):
             _, frame = cap.read()
             frame_mono = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            face_detected, landmarks, eyelids = detect_face(frame, scale=self.parent.downscaling_factor, aoi=self.parent.area_of_interest)
+            face_detected, landmarks, eyelids = detect_face(frame, scale=self.parent.downscaling_factor, aoi=self.parent.area_of_interest, detector=self.parent.face_detector)
             
             if face_detected: # face is found
                 # create facedata
@@ -532,7 +532,7 @@ class offline_calibration_app(wx.Frame):
 
     NewImageEvent, EVT_NEWIMAGE = wx.lib.newevent.NewEvent()
 
-    def __init__(self, config, movie, calinfo, iris_detector=None,  batch=False, output=None, overwrite=False):
+    def __init__(self, config, movie, calinfo, face_detector=None, iris_detector=None,  batch=False, output=None, overwrite=False):
         super(offline_calibration_app, self).__init__(parent=None,id=wx.ID_ANY,title="Offline calibration")
 
         self.calinfofile = calinfo
@@ -562,8 +562,14 @@ class offline_calibration_app(wx.Frame):
         self.face_model = config.face_model
         self.eye_params = config.eye_params
 
+        if face_detector is None:
+            msg = 'Offilne_Calibration: face-detector must be specified.'
+            raise RuntimeError(msg)
+        self.face_detector = face_detector
+
         if iris_detector is None:
-            raise RuntimeError('Offilne_Calibration: iris_detector must be specified.')
+            msg = 'Offilne_Calibration: iris-detector must be specified.'
+            raise RuntimeError(msg)
         self.iris_detector = iris_detector
 
         self.area_of_interest =  None
@@ -1245,7 +1251,7 @@ class offline_calibration_app(wx.Frame):
                                 (0,255,255), thickness=2)
 
         if self.cb_detect_face.GetValue():
-            dets = get_face_boxes(im)
+            dets = get_face_boxes(im, detector=self.parent.face_detector)
             
             for fidx in range(len(dets)):
                 if self.area_of_interest is None or self.area_of_interest.contains(dets[fidx]):
@@ -1266,6 +1272,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('--camera-param', type=str, help='camera parameters file')
     arg_parser.add_argument('--filter-param', type=str, help='filter parameters file')
     arg_parser.add_argument('--face-model', type=str, help='face model file')
+    arg_parser.add_argument('--face-detector', type=str, help='face detector (dlib or mediapipe)')
     arg_parser.add_argument('--iris-detector', type=str, help='iris detector (ert, peak, enet or path to detector)')
     arg_parser.add_argument('--cal-info', type=str, help='calibration information file')
     arg_parser.add_argument('-m', '--movie', type=str, help='movie file (required for batch execution)')
@@ -1274,7 +1281,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('--overwrite', action='store_true', help='overwrite output file (batch mode)')
     args = arg_parser.parse_args()
 
-    camera_param_file, face_model_file, filter_param_file, iris_detector = load_pwgazer_config(conf, args)
+    camera_param_file, face_model_file, filter_param_file, face_detector, iris_detector = load_pwgazer_config(conf, args)
 
     if iris_detector is None:
         sys.exit()
@@ -1300,5 +1307,7 @@ if __name__ == '__main__':
             os.remove(args.output)
 
     app = wx.App(False)
-    offline_calibration_app(conf, movie=args.movie, calinfo=args.cal_info, iris_detector=iris_detector, batch=args.batch, output=args.output, overwrite=args.overwrite)
+    offline_calibration_app(conf, movie=args.movie, calinfo=args.cal_info, 
+                            face_detector=face_detector, iris_detector=iris_detector,
+                            batch=args.batch, output=args.output, overwrite=args.overwrite)
     app.MainLoop()

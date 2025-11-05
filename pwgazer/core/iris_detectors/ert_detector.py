@@ -15,7 +15,8 @@ _predictor = dlib.shape_predictor(str(module_dir/'ert_predictor.dat'))
 
 def ert_detector(eyedata, debug=False):
     if eyedata.image.shape[0]*2 != eyedata.image.shape[1]:
-        raise ValueError('Height:Width must be 1:2. (input:{})'.format(eyedata.image.shape))
+        msg = 'Height:Width must be 1:2. (input:{})'.format(eyedata.image.shape)
+        raise ValueError(msg)
 
     eyelid_w = eyedata.eyelid_ends[1,0] - eyedata.eyelid_ends[0,0]
     iris_cand_min = eyelid_w/4  # iris should be wider than 1/4 of eyelid_w

@@ -7,7 +7,7 @@ import cv2
 from ..core.config import config as configuration
 from ..app._util import load_pwgazer_config
 from ..core.eye import eyedata
-from ..core.face import facedata, get_face_boxes, get_face_landmarks
+from ..core.face import facedata, detect_face
 
 
 if __name__ == '__main__':
@@ -41,53 +41,27 @@ if __name__ == '__main__':
 
         reye_img = None
         leye_img = None
-        
-        if conf.downscaling_factor == 1.0: # original size
-            dets, _ = get_face_boxes(frame_mono, engine='dlib_hog')
-        else: # downscale camera image
-            dets, _ = get_face_boxes(cv2.resize(frame_mono, None, fx=conf.downscaling_factor, fy=conf.downscaling_factor), engine='dlib_hog') # detections, scores, weight_indices
-            inv = 1.0/conf.downscaling_factor
-            # recover rectangle size
-            for i in range(len(dets)):
-                dets[i].scale(inv)
+
+        face_detected, landmarks, eyelids = detect_face(frame, scale=)
 
         # TODO? support rvecs?
         face_rvec = None
         face_tvec = None
-
-        face_detected = False
-
-        # TODO: support area_of interest?
-        """
-        if self.area_of_interest is None:
-            if len(dets) > 0:
-                face_detected = True
-                target_idx = 0
-        else:
-            for target_idx in range(len(dets)):
-                if self.area_of_interest.contains(dets[target_idx]):
-                    face_detected = True
-                    break
-        """
-        if len(dets) > 0:
-            face_detected = True
-            target_idx = 0
 
         if face_detected: # face is found
             face_detected = True
             rfp.write('----- Face Detection -----\nResult:success\n')
             
             # only first face is used
-            landmarks = get_face_landmarks(frame_mono, dets[target_idx])
             cv2.imwrite('{}_{}_mono.png'.format(name, args.frame), frame_mono)
             
             # create facedata
-            face = facedata(landmarks, camera_matrix=conf.camera_matrix, face_model=conf.face_model,
+            face = facedata(landmarks, eyelids, camera_matrix=conf.camera_matrix, face_model=conf.face_model,
                 eye_params=conf.eye_params, prev_rvec=face_rvec, prev_tvec=face_tvec)
 
             # create eyedata
-            left_eye = eyedata(frame_mono, landmarks, eye='L', iris_detector=iris_detector)
-            right_eye = eyedata(frame_mono, landmarks, eye='R', iris_detector=iris_detector)
+            left_eye = eyedata(frame_mono, eyelids, eye='L', iris_detector=iris_detector)
+            right_eye = eyedata(frame_mono, eyelids, eye='R', iris_detector=iris_detector)
 
             if not left_eye.blink:
                 #left_eye.draw_marker(frame)

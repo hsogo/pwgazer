@@ -144,7 +144,8 @@ def calc_gaze_position(eye, rmat, eye_center, eye_norm, screen, fitting_param, f
             tx = np.dot(np.array((nix, niy, 1)), fitting_param[2])
             ty = np.dot(np.array((nix, niy, 1)), fitting_param[3])
     else:
-        raise ValueError('Eye must be L or R')
+        msg = 'Eye must be L or R'
+        raise ValueError(msg)
 
     vec = np.dot(rmat, np.array([tx, ty, -1*(1-(tx**2+ty**2))]))
     sp = screen.get_screen_point_from_gaze_vector(vec.reshape(3), eye_center.reshape(3))
@@ -155,9 +156,11 @@ def calc_gaze_position(eye, rmat, eye_center, eye_norm, screen, fitting_param, f
 class MA_filter(object):
     def __init__(self, dim=2, order=3):
         if not isinstance(dim, int) or (dim not in (2, 3, 4)):
-            raise ValueError('MA filter dim must be 2, 3 or 4.')
+            msg = 'MA filter dim must be 2, 3 or 4.'
+            raise ValueError(msg)
         if not isinstance(order, int) or order < 2:
-            raise ValueError('MA filter order must be an integer greater than 1.')
+            msg = 'MA filter order must be an integer greater than 1.'
+            raise ValueError(msg)
         self.dim = dim
         self.order = order
         self.buffer = np.zeros((dim, order)) * np.nan # generate NaN array
@@ -200,11 +203,14 @@ def get_filter(face_filter_type, face_filter_param, iris_filter_type, iris_filte
         try:
             exec(code)
         except:
-            raise RuntimeError('Could not read filter from file: {}'.format(face_filter_type))
+            msg = 'Could not read filter from file: {}'.format(face_filter_type)
+            raise RuntimeError(msg)
         if 'iri_filter_l' not in locals() or 'iris_filter_r' not in locals():
-            raise RuntimeError('"face_filter_rot" and "face_filter_tr" must be defined in {}'.format(face_filter_type))
+            msg = '"face_filter_rot" and "face_filter_tr" must be defined in {}'.format(face_filter_type)
+            raise RuntimeError(msg)
     else:
-        raise RuntimeError('Unknown filter: {}'.format(face_filter_type))
+        msg = 'Unknown filter: {}'.format(face_filter_type)
+        raise RuntimeError(msg)
     
     if iris_filter_type == '':
         iris_filter_l = None
@@ -222,11 +228,14 @@ def get_filter(face_filter_type, face_filter_param, iris_filter_type, iris_filte
         try:
             exec(code)
         except:
-            raise RuntimeError('Could not read filter from file: {}'.format(iris_filter_type))
+            msg = 'Could not read filter from file: {}'.format(iris_filter_type)
+            raise RuntimeError(msg)
         if 'iri_filter_l' not in locals() or 'iris_filter_r' not in locals():
-            raise RuntimeError('"iris_filter_l" and "iris_filter_r" must be defined in {}'.format(iris_filter_type))
+            msg = '"iris_filter_l" and "iris_filter_r" must be defined in {}'.format(iris_filter_type)
+            raise RuntimeError(msg)
     else:
-        raise RuntimeError('Unknown filter: {}'.format(iris_filter_type))
+        msg = 'Unknown filter: {}'.format(iris_filter_type)
+        raise RuntimeError(msg)
 
     return face_filter_rot, face_filter_tr, iris_filter_l, iris_filter_r
 

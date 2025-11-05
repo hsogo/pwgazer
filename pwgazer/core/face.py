@@ -14,7 +14,7 @@ try:
 except:
     pass
 
-facedetection_engines = ['dlib_hog', 'mediapipe_facemesh']
+supported_face_detectors = ['dlib', 'mediapipe']
 
 module_dir = Path(__file__).parent
 
@@ -50,9 +50,9 @@ default_eye_params = np.array([
 n_face_model = default_face_model.shape[0]
 FACE_CONFIDENCE_THRESHOLD = 0.5
 
-def detect_face(frame, engine='mediapipe_facemesh', aoi=None, scale=1.0):
+def detect_face(frame, detector='mediapipe', aoi=None, scale=1.0):
 
-    if engine == 'dlib_hog':
+    if detector == 'dlib':
         # monochrome
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -114,7 +114,7 @@ def detect_face(frame, engine='mediapipe_facemesh', aoi=None, scale=1.0):
         else:
             return False, None, None
     
-    elif engine == 'mediapipe_facemesh':
+    elif detector == 'mediapipe':
         # Because facemesh returns landmarks directly, "scale" parameter is ignored.
         fm_results = facemesh.process(frame)
 
@@ -172,17 +172,18 @@ def detect_face(frame, engine='mediapipe_facemesh', aoi=None, scale=1.0):
             return False, None, None
 
     else:
-        raise ValueError('{} is not supported. available engines are: {}'.format(engine, facedetection_engines))
+        msg = '{} is not supported. available detectors are: {}'.format(detector, supported_face_detectors)
+        raise ValueError(msg)
 
 
-def get_face_boxes(frame, engine='dlib_hog'):
+def get_face_boxes(frame, detector='mediapipe'):
    
-    if engine == 'dlib_hog':
+    if detector == 'dlib':
         dets, _, _ = dlib_face_detector.run(frame, 0) # detections, scores, weight_indices
         detections = [rect(d.left(), d.top(), d.right()-d.left(), d.bottom()-d.top()) for d in dets]
         return detections
     
-    elif engine == 'mediapipe_facemesh':
+    elif detector == 'mediapipe':
         fm_results = facemesh.process(frame)
         detection = []
         for fm in fm_results.multi_face_landmarks:
@@ -198,7 +199,8 @@ def get_face_boxes(frame, engine='dlib_hog'):
         return detection
 
     else:
-        raise ValueError('{} is not supported. available engines are: {}'.format(engine, facedetection_engines))
+        msg = '{} is not supported. available detectors are: {}'.format(detector, supported_face_detectors)
+        raise ValueError(msg)
 
 
 

@@ -1,80 +1,83 @@
 import configparser
 import numpy as np
 import os
+import warnings
 
-application_params = [
-    'IRIS_DETECTOR',
-    'CALIBRATED_OUTPUT',
-    'CALIBRATIONLESS_OUTPUT',
-    'DATAFILE_OPEN_MODE',
-]
+application_params = {
+    'FACE_DETECTOR':'mediapipe',
+    'IRIS_DETECTOR':'ert',
+    'CALIBRATED_OUTPUT':'1',
+    'CALIBRATIONLESS_OUTPUT':'0',
+    'DATAFILE_OPEN_MODE':'new',
+}
 
-camera_params = [
-    'CAMERA_ID',
-    'RESOLUTION_HORIZ',
-    'RESOLUTION_VERT',
-    'DOWNSCALING'
-]
+camera_params = {
+    'CAMERA_ID':'0',
+    'RESOLUTION_HORIZ':'640',
+    'RESOLUTION_VERT':'480',
+    'DOWNSCALING':'1.0'
+}
 
-camera_matrix_params = [
-    'CAMERA_MATRIX_R0C0',
-    'CAMERA_MATRIX_R0C1',
-    'CAMERA_MATRIX_R0C2',
-    'CAMERA_MATRIX_R1C0',
-    'CAMERA_MATRIX_R1C1',
-    'CAMERA_MATRIX_R1C2',
-    'CAMERA_MATRIX_R2C0',
-    'CAMERA_MATRIX_R2C1',
-    'CAMERA_MATRIX_R2C2',
-    'DIST_COEFFS_R0C0',
-    'DIST_COEFFS_R1C0',
-    'DIST_COEFFS_R2C0',
-    'DIST_COEFFS_R3C0',
-    'DIST_COEFFS_R4C0'
-]
+camera_matrix_params = {
+    'CAMERA_MATRIX_R0C0':'480.0',
+    'CAMERA_MATRIX_R0C1':'0.0',
+    'CAMERA_MATRIX_R0C2':'320.0',
+    'CAMERA_MATRIX_R1C0':'0.0',
+    'CAMERA_MATRIX_R1C1':'480.0',
+    'CAMERA_MATRIX_R1C2':'240.0',
+    'CAMERA_MATRIX_R2C0':'0.0',
+    'CAMERA_MATRIX_R2C1':'0.0',
+    'CAMERA_MATRIX_R2C2':'1.0',
+    'DIST_COEFFS_R0C0':'0.0',
+    'DIST_COEFFS_R1C0':'0.0',
+    'DIST_COEFFS_R2C0':'0.0',
+    'DIST_COEFFS_R3C0':'0.0',
+    'DIST_COEFFS_R4C0':'0.0'
+}
 
-screen_layout_params = [
-    'WIDTH',
-    'HORIZ_RES',
-    'OFFSET_X',
-    'OFFSET_Y',
-    'OFFSET_Z',
-    'ROT_X',
-    'ROT_Y',
-    'ROT_Z'
-]
+screen_layout_params = {
+    'WIDTH':'464.0',
+    'HORIZ_RES':'1920',
+    'OFFSET_X':'0.0',
+    'OFFSET_Y':'140.0',
+    'OFFSET_Z':'30.0',
+    'ROT_X':'-10.0',
+    'ROT_Y':'0.0',
+    'ROT_Z':'0.0'
+}
 
-face_model_params = [
-    'NOSE_TIP',
-    'LEFT_EYE_OUTER',
-    'LEFT_EYE_INNER',
-    'RIGHT_EYE_INNER',
-    'RIGHT_EYE_OUTER',
-    'LEFT_MOUTH_CORNER',
-    'RIGHT_MOUTH_CORNER',
-    'SUBNASALE',
-    'NOSE_ROOT'
-]
+face_model_params = {
+    'NOSE_TIP':'0.00,34.64,-24.15',
+    'LEFT_EYE_OUTER':'47.44,-2.34,7.97',
+    'LEFT_EYE_INNER':'17.51,0.00,0.00',
+    'RIGHT_EYE_INNER':'-17.51,0.00,0.00',
+    'RIGHT_EYE_OUTER':'-47.44,-2.34,7.97',
+    'LEFT_MOUTH_CORNER':'24.36,68.82,-1.60',
+    'RIGHT_MOUTH_CORNER':'-24.36,68.82,-1.60',
+    'SUBNASALE':'0.00,46.27,-14.26',
+    'NOSE_ROOT':'0.00,-7.20,-7.19'
+}
 
-eye_params = [
-    'EYE_DIAMETER',
-    'EYE_OFFSET_LX',
-    'EYE_OFFSET_LY',
-    'EYE_OFFSET_LZ',
-    'EYE_OFFSET_RX',
-    'EYE_OFFSET_RY',
-    'EYE_OFFSET_RZ'
-]
+eye_params = {
+    'EYE_DIAMETER':'24.0',
+    'EYE_OFFSET_LX':'0.0',
+    'EYE_OFFSET_LY':'0.0',
+    'EYE_OFFSET_LZ':'-12.0',
+    'EYE_OFFSET_RX':'0.0',
+    'EYE_OFFSET_RY':'0.0',
+    'EYE_OFFSET_RZ':'-12.0'
+}
 
-filter_params = [
-    'FACE_FILTER',
-    'FACE_FILTER_PARAM',
-    'IRIS_FILTER',
-    'IRIS_FILTER_PARAM'
-]
+filter_params = {
+    'FACE_FILTER':'MA',
+    'FACE_FILTER_PARAM':'3,3',
+    'IRIS_FILTER':'MA',
+    'IRIS_FILTER_PARAM':'3'
+}
 
 class config(object):
     def __init__(self):
+        self.face_detector = 'mediapipe'
         self.iris_detector = 'ert'
         self.calibrated_output = True
         self.calibrationless_output = False
@@ -99,16 +102,19 @@ class config(object):
 
     def load_application_param(self, filename):
         if not os.path.isfile(filename):
-            raise RuntimeError('Configuration file ({}) is not found.'.format(filename))
+            msg = 'Configuration file ({}) is not found.'.format(filename)
+            raise RuntimeError(msg)
         cfgp = configparser.ConfigParser()
         cfgp.optionxform = str
         cfgp.read(filename)
 
-        for option in application_params:
+        for option in application_params.keys():
             try:
                 s = cfgp.get('Application', option)
             except:
-                raise RuntimeError('"{}" is not defined in [Application]'.format(option))
+                s = application_params[option]
+                msg = '"{}" is not defined in [Application]. Default value ({}) is used.'.format(option, s)
+                warnings.warn(msg)
 
             if option == 'IRIS_DETECTOR':
                 self.iris_detector = s
@@ -118,43 +124,50 @@ class config(object):
                 elif s == 'True' or s  == '1':
                     self.calibrated_output = True
                 else:
-                    raise ValueError('CALIBRATED_OUTPUT must be (False, True, 0, 1)')
+                    msg = 'CALIBRATED_OUTPUT must be (False, True, 0, 1)'
+                    raise ValueError(msg)
             elif option == 'CALIBRATIONLESS_OUTPUT':
                 if s == 'False' or s == '0':
                     self.calibrationless_output = False
                 elif s == 'True' or s  == '1':
                     self.calibrationless_output = True
                 else:
-                    raise ValueError('CALIBRATIONLESS_OUTPUT must be (False, True, 0, 1)')
+                    msg = 'CALIBRATIONLESS_OUTPUT must be (False, True, 0, 1)'
+                    raise ValueError(msg)
             elif option == 'DATAFILE_OPEN_MODE':
                 if s in ('new','overwrite','rename'):
                     self.datafile_open_mode = s
                 else:
-                    raise ValueError('DATAFILE_OPEN_MODE must be (\'new\', \'overwrite\', \'rename\')') 
+                    msg = 'DATAFILE_OPEN_MODE must be (\'new\', \'overwrite\', \'rename\')'
+                    raise ValueError(msg)
 
         if not (self.calibrated_output or self.calibrationless_output):
-            raise ValueError('Either CALIBRATED_OUTPUT or CALIBRATIONLESS_OUTPUT must be True.')
+            msg = 'Either CALIBRATED_OUTPUT or CALIBRATIONLESS_OUTPUT must be True.'
+            raise ValueError(msg)
         
         self.application_param_file = filename
 
     def load_camera_param(self, filename):
         if not os.path.isfile(filename):
-            raise RuntimeError('Configuration file ({}) is not found.'.format(filename))
+            msg = 'Configuration file ({}) is not found.'.format(filename)
+            raise RuntimeError(msg)
         cfgp = configparser.ConfigParser()
         cfgp.optionxform = str
         cfgp.read(filename)
 
         values = []
-        for option in camera_params:
+        for option in camera_params.keys():
             try:
                 s = cfgp.get('Basic Parameters', option)
             except:
-                raise RuntimeError('"{}" is not defined in [Basic Parameters]'.format(option))
+                s = camera_params[option]
+                warnings.warn('"{}" is not defined in [Basic Parameters]. Default value ({}) is used.'.format(option, s))
 
             try:
                 values.append(float(s))
             except:
-                raise ValueError('Invalid value: {}={}'.format(option,s))
+                msg = 'Invalid value: {}={}'.format(option,s)
+                raise ValueError(msg)
 
         self.camera_id = int(values[0])
         self.camera_resolution_h = int(values[1])
@@ -162,31 +175,37 @@ class config(object):
         self.downscaling_factor = values[3]
 
         values = []
-        for option in camera_matrix_params:
+        for option in camera_matrix_params.keys():
             try:
                 s = cfgp.get('Calibration Parameters', option)
             except:
-                raise RuntimeError('"{}" is not defined in [Calibration Parameters]'.format(option))
+                s = camera_params[option]
+                msg = '"{}" is not defined in [Calibration Parameters]. Default value ({}) is used.'.format(option, s)
+                warnings.warn(msg)
 
             try:
                 values.append(float(s))
             except:
-                raise ValueError('Invalid value: {}={}'.format(option,s))
+                msg = 'Invalid value: {}={}'.format(option,s)
+                raise ValueError(msg)
 
         self.camera_matrix = np.array(values[:9]).reshape((3,3))
         self.dist_coeffs = np.array(values[9:]).reshape((5,1))
 
         values = []
-        for option in screen_layout_params:
+        for option in screen_layout_params.keys():
             try:
                 s = cfgp.get('Screen Layout Parameters', option)
             except:
-                raise RuntimeError('"{}" is not defined in [Screen Layout Parameters]'.format(option))
+                s = screen_layout_params[option]
+                msg = '"{}" is not defined in [Screen Layout Parameters]. Default value ({}) is used.'.format(option, s)
+                warnings.warn(msg)
 
             try:
                 values.append(float(s))
             except:
-                raise ValueError('Invalid value: {}={}'.format(option,s))
+                msg = 'Invalid value: {}={}'.format(option,s)
+                raise ValueError(msg)
         
         self.screen_width = values[0]
         self.screen_h_res = int(values[1])
@@ -197,37 +216,44 @@ class config(object):
 
     def load_face_model(self, filename):
         if not os.path.isfile(filename):
-            raise RuntimeError('Configuration file ({}) is not found.'.format(filename))
+            msg = 'Configuration file ({}) is not found.'.format(filename)
+            raise RuntimeError(msg)
         cfgp = configparser.ConfigParser()
         cfgp.optionxform = str
         cfgp.read(filename)
 
         values = []
-        for option in face_model_params:
+        for option in face_model_params.keys():
             try:
                 s = cfgp.get('Face Model', option)
             except:
-                raise RuntimeError('"{}" is not defined in [Face Model]'.format(option))
+                s = face_model_params[option]
+                msg = '"{}" is not defined in [Face Model]. Default value ({}) is used.'.format(option, s)
+                warnings.warn(msg)
 
             try:
                 v = s.split(',')
                 values.append((float(v[0]),float(v[1]),float(v[2])))
             except:
-                raise ValueError('Invalid value: {}={}'.format(option,s))
+                msg = 'Invalid value: {}={}'.format(option,s)
+                raise ValueError(msg)
 
         self.face_model = np.array(values)
 
         values = []
-        for option in eye_params:
+        for option in eye_params.keys():
             try:
                 s = cfgp.get('Eye Parameters', option)
             except:
-                raise RuntimeError('"{}" is not defined in [Eye Parameters]'.format(option))
+                s = eye_params[option]
+                msg = '"{}" is not defined in [Eye Parameters]. Default value ({}) is used.'.format(option, s)
+                warnings.warn(msg)
 
             try:
                 values.append(float(s))
             except:
-                raise ValueError('Invalid value: {}={}'.format(option,s))
+                msg = 'Invalid value: {}={}'.format(option,s)
+                raise ValueError(msg)
 
         self.eye_params = np.array(values)
 
@@ -236,16 +262,19 @@ class config(object):
 
     def load_filter_param(self, filename):
         if not os.path.isfile(filename):
-            raise RuntimeError('Configuration file ({}) is not found.'.format(filename))
+            msg = 'Configuration file ({}) is not found.'.format(filename)
+            raise RuntimeError(msg)
         cfgp = configparser.ConfigParser()
         cfgp.optionxform = str
         cfgp.read(filename)
 
-        for option in filter_params:
+        for option in filter_params.keys():
             try:
                 s = cfgp.get('Filter', option)
             except:
-                raise RuntimeError('"{}" is not defined in [Filter]'.format(option))
+                s = filter_params[option]
+                msg = '"{}" is not defined in [Filter]. Default value ({}) is used.'.format(option, s)
+                warnings.warn(msg)
 
             if option == 'FACE_FILTER':
                 self.face_filter = s
@@ -261,7 +290,8 @@ class config(object):
 
     def save_camera_param(self, filename=None):
         if self.camera_matrix is None or self.dist_coeffs is None:
-            raise RuntimeError('Camera parameters are not initialized')
+            msg = 'Camera parameters are not initialized'
+            raise RuntimeError(msg)
         serialized_params = np.hstack((self.camera_matrix.ravel(), self.dist_coeffs.ravel()))
 
         if filename is None:
@@ -290,7 +320,8 @@ class config(object):
 
     def save_face_model(self, filename=None):
         if self.face_model is None:
-            raise RuntimeError('Face model is not initialized')
+            msg = 'Face model is not initialized'
+            raise RuntimeError(msg)
 
         if filename is None:
             filename = self.face_model_file

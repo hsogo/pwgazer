@@ -60,7 +60,7 @@ eye_image_height = 128
 class Offline_Tracker(wx.Frame):
     NewImageEvent, EVT_NEWIMAGE = wx.lib.newevent.NewEvent()
  
-    def __init__(self, config=None, batch=False, movie=None, cal=None, output=None, iris_detector=None, overwrite=False, force_calibrationless=False, debug_mode=False):
+    def __init__(self, config=None, batch=False, movie=None, cal=None, output=None, face_detector=None, iris_detector=None, overwrite=False, force_calibrationless=False, debug_mode=False):
         self.config = config
         self.batch_mode = batch
         self.overwrite = overwrite
@@ -71,9 +71,17 @@ class Offline_Tracker(wx.Frame):
 
         self.debug_mode = debug_mode
 
+        if face_detector is None:
+            msg = 'Offline_Tracker: face-detector must be specified.'
+            raise RuntimeError(msg)
+        self.face_detector = face_detector
+
         if iris_detector is None:
-            raise RuntimeError('Offline_Tracker: iris_detector must be specified.')
+            msg = 'Offline_Tracker: iris-detector must be specified.'
+            raise RuntimeError(msg)
         self.iris_detector = iris_detector
+
+        self.face_detector = config.face_detector
 
         self.camera_matrix = config.camera_matrix
         self.downscaling_factor = config.downscaling_factor
@@ -211,7 +219,8 @@ class Offline_Tracker(wx.Frame):
         elif self.config.datafile_open_mode == 'rename':
             self.menu_datafile_open_mode.Check(ID_DFMODE_RENAME, True)
         else:
-            raise ValueError('Invalid datafile open mode:{}'.format(self.config.datafile_open_mode))
+            msg = 'Invalid datafile open mode:{}'.format(self.config.datafile_open_mode)
+            raise ValueError(msg)
         # output mode
         if self.config.calibrated_output and config.calibrationless_output:
             self.menu_output_mode.Check(ID_OUTPUTMODE_BOTH, True)
@@ -220,7 +229,8 @@ class Offline_Tracker(wx.Frame):
         elif self.config.calibrationless_output:
             self.menu_output_mode.Check(ID_OUTPUTMODE_NOCAL, True)
         else:
-            raise ValueError('Invalid datafile open mode')
+            msg = 'Invalid data output mode'
+            raise ValueError(msg)
 
         self.Bind(wx.EVT_MENU, self.update_option, id=ID_OUTPUTMODE_BOTH)
         self.Bind(wx.EVT_MENU, self.update_option, id=ID_OUTPUTMODE_CAL)
@@ -679,7 +689,7 @@ class Offline_Tracker(wx.Frame):
                 reye_img = None
                 leye_img = None
                 
-                face_detected, landmarks, eyelids = detect_face(frame, scale=self.downscaling_factor)
+                face_detected, landmarks, eyelids = detect_face(frame, scale=self.downscaling_factor, detector=self.face_detector)
 
                 if face_detected: # face is found
                     face_detected = True
@@ -774,6 +784,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('--camera-param', type=str, help='camera parameters file')
     arg_parser.add_argument('--filter-param', type=str, help='filter parameters file')
     arg_parser.add_argument('--face-model', type=str, help='face model file')
+    arg_parser.add_argument('--face-detector', type=str, help='face detector (dlib or mediapipe)')
     arg_parser.add_argument('--iris-detector', type=str, help='iris detector (ert, peak, enet or path to detector)')
     arg_parser.add_argument('-b', '--batch', action='store_true', help='batch execution (movie and calibration are required)')
     arg_parser.add_argument('-m', '--movie', type=str, help='movie file (required for batch execution)')
@@ -784,7 +795,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('--debug', action='store_true', help='Debug mode')
     args = arg_parser.parse_args()
 
-    camera_param_file, face_model_file, filter_param_file, iris_detector = load_pwgazer_config(conf, args)
+    camera_param_file, face_model_file, filter_param_file, face_detector, iris_detector = load_pwgazer_config(conf, args)
 
     if iris_detector is None:
         sys.exit()
@@ -801,6 +812,7 @@ if __name__ == '__main__':
             
     app = wx.App(False)
     offline_tracker = Offline_Tracker(conf, batch=args.batch, movie=args.movie, cal=args.cal, output=args.output,
-        iris_detector = iris_detector, overwrite=args.overwrite, force_calibrationless=args.force_calibrationless, debug_mode=args.debug)
+        face_detector=face_detector, iris_detector=iris_detector, overwrite=args.overwrite,
+        force_calibrationless=args.force_calibrationless, debug_mode=args.debug)
     app.MainLoop()
 

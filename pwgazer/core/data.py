@@ -14,10 +14,12 @@ class gazedata(object):
         self.debug_mode = debug_mode
 
         if not (calibrated_output or calibrationless_output):
-            raise ValueError('No gaze output')
+            msg = 'No gaze output'
+            raise ValueError(msg)
 
         if open_mode not in ('new', 'overwrite', 'rename'):
-            raise ValueError('write_mode must be "new", "overwrite" or "rename".')
+            msg = 'write_mode must be "new", "overwrite" or "rename".'
+            raise ValueError(msg)
 
         if os.path.exists(filename):
             if open_mode == 'new':
@@ -185,7 +187,8 @@ class calibrationdata(object):
 
     def add_raw_data(self, face, leye, reye):
         if not self.offline:
-            raise RuntimeError('This method is for the offline mode')
+            msg = 'This method is for the offline mode'
+            raise RuntimeError(msg)
         rvec = face.rotation_vector if face is not None else None
         tvec = face.translation_vector if face is not None else None
         rmat = face.rotation_matrix if face is not None else None
@@ -202,9 +205,11 @@ class calibrationdata(object):
     
     def add_caldata_from_raw(self, calpoint, indices):
         if not self.offline:
-            raise RuntimeError('This method is for the offline mode')
+            msg = 'This method is for the offline mode'
+            raise RuntimeError(msg)
         if len(self.raw_data) == 0:
-            raise RuntimeError('Raw data must be stored befor calling this method.')
+            msg = 'Raw data must be stored befor calling this method.'
+            raise RuntimeError(msg)
         
         for i in indices:
             if self.raw_data[i][0] is not None and \
@@ -215,7 +220,8 @@ class calibrationdata(object):
 
     def add_caldata(self, calpoint, face, leye, reye):
         if self.offline:
-            raise RuntimeError('This method is for the realtime mode')
+            msg = 'This method is for the realtime mode'
+            raise RuntimeError(msg)
 
         self.data.append((
             calpoint, # 
@@ -246,9 +252,11 @@ class calibrationdata(object):
 
     def LM_calibration(self):
         if len(self.data) == 0:
-            raise RuntimeError('No calibration data.')
+            msg = 'No calibration data.'
+            raise RuntimeError(msg)
         if self.data[0][0] is None:
-            raise RuntimeError('Calibration point is empty.')
+            msg = 'Calibration point is empty.'
+            raise RuntimeError(msg)
 
         s = len(self.data)
         LX = np.zeros((s,1))

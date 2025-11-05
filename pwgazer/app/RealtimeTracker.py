@@ -73,13 +73,19 @@ class Tracker(wx.Frame):
     pressed_keys = {'Q':False, 'UP':False, 'DOWN':False, 'LEFT':False, 'RIGHT':False}
     NewImageEvent, EVT_NEWIMAGE = wx.lib.newevent.NewEvent()
  
-    def __init__(self, camera, config, port_send=10001, port_receive=10000, iris_detector=None):
+    def __init__(self, camera, config, port_send=10001, port_receive=10000, face_detector=None, iris_detector=None):
 
         self.config = config
         self.camera = camera
 
+        if face_detector is None:
+            msg = 'Tracker: face-detector must be specified.'
+            raise RuntimeError(msg)
+        self.face_detector = face_detector
+
         if iris_detector is None:
-            raise RuntimeError('Tracker: iris_detector must be specified.')
+            msg = 'Tracker: iris-detector must be specified.'
+            raise RuntimeError(msg)
         self.iris_detector = iris_detector
 
         # init TCP/IP connection
@@ -181,7 +187,8 @@ class Tracker(wx.Frame):
         elif config.calibrationless_output:
             menu_output_mode.Check(ID_OUTPUTMODE_NOCAL, True)
         else:
-            raise ValueError('Invalid datafile open mode')
+            msg = 'Invalid data output mode'
+            raise ValueError(msg)
 
         self.SetMenuBar(menu_bar)
         self.Bind(wx.EVT_MENU, self.load_camera_config, id=ID_LOAD_CAMERACONFIG)
@@ -567,7 +574,7 @@ class Tracker(wx.Frame):
                 reye_img = None
                 leye_img = None
                 
-                face_detected, landmarks, eyelids = detect_face(frame, scale=self.downscaling_factor)
+                face_detected, landmarks, eyelids = detect_face(frame, scale=self.downscaling_factor, detector=self.face_detector)
 
                 if face_detected: # face is found
                     # create facedata
@@ -672,11 +679,12 @@ if __name__ == '__main__':
     arg_parser.add_argument('--camera-param', type=str, help='camera parameters file')
     arg_parser.add_argument('--filter-param', type=str, help='filter parameters file')
     arg_parser.add_argument('--face-model', type=str, help='face model file')
+    arg_parser.add_argument('--face-detector', type=str, help='face detector (dlib or mediapipe)')
     arg_parser.add_argument('--iris-detector', type=str, help='iris detector (ert, peak, enet or path to detector)')
     arg_parser.add_argument('--select-camera', action='store_true', help='open "Select camera" dialog')
     args = arg_parser.parse_args()
 
-    camera_param_file, face_model_file, filter_param_file, iris_detector = load_pwgazer_config(conf, args)
+    camera_param_file, face_model_file, filter_param_file, face_detector, iris_detector = load_pwgazer_config(conf, args)
 
     if iris_detector is None:
         sys.exit()    
@@ -720,7 +728,7 @@ if __name__ == '__main__':
 
     print('Creating main window...')
 
-    tracker = Tracker(cap, conf, iris_detector=iris_detector)
+    tracker = Tracker(cap, conf, face_detector=face_detector, iris_detector=iris_detector)
 
     print('Start.')
     app.MainLoop()
