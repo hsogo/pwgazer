@@ -81,8 +81,6 @@ class Offline_Tracker(wx.Frame):
             raise RuntimeError(msg)
         self.iris_detector = iris_detector
 
-        self.face_detector = config.face_detector
-
         self.camera_matrix = config.camera_matrix
         self.downscaling_factor = config.downscaling_factor
         self.screen = screen()
