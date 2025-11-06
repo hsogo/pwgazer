@@ -18,7 +18,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('-f', '--face-model', type=str, help='face model file')
     arg_parser.add_argument('-c', '--camera-caldata', type=str, help='camera calibration file')
     arg_parser.add_argument('-o', '--output', type=str, help='output file')
-    arg_parser.add_argument('--face_detector', type=str, help='face detector (mediapipe, dlib)')
+    arg_parser.add_argument('--face-detector', type=str, help='face detector (mediapipe, dlib)')
     arg_parser.add_argument('--iris-detector', type=str, help='iris detector (ert, peak, enet)')
     arg_parser.add_argument('--image-gain', type=float, help='pixel values are multiplied by this value')
     arg_parser.add_argument('--noise-sigma', type=float, help='sigma of Gaussian random noise')
@@ -59,6 +59,11 @@ if __name__ == '__main__':
     else: #default = ert detector
         from ..core.iris_detectors.ert_detector import ert_detector as iris_detector
 
+    if args.face_detector is None:
+        face_detector = 'dlib'
+    else:
+        face_detector = args.face_detector
+
     for f in files:
         try:
             frame = cv2.imread(f)
@@ -81,7 +86,7 @@ if __name__ == '__main__':
             frame = frame.astype(dtype)
         frame_mono = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        face_detected, landmarks, eyelids = detect_face(frame)
+        face_detected, landmarks, eyelids = detect_face(frame, detector=face_detector)
 
         if face_detected:
             # create facedata
