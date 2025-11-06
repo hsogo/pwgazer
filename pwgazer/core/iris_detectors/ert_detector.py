@@ -25,11 +25,12 @@ def ert_detector(eyedata, debug=False):
     eyedata.iris_center = None
     eyedata.iris_radius = None
 
-    #d = dlib.rectangle(left=0, top=0, right=eyedata.image.shape[1], bottom=eyedata.image.shape[0])
-    d = dlib.rectangle(left=0, top=eyedata.image.shape[0]//4, right=eyedata.image.shape[1], bottom=eyedata.image.shape[0]//4*3)
+    # Excludes the outer periphery of the image, which makes calculations faster.
+    d = dlib.rectangle(left=eyedata.image.shape[1]//16, top=eyedata.image.shape[0]//8, right=eyedata.image.shape[1]//8*7, bottom=eyedata.image.shape[0]//16*15)
+
     shape = _predictor(eyedata.image, d)
     landmarks = np.array([(shape.part(ii).x, shape.part(ii).y) for ii in range(shape.num_parts)])
-    
+
     (x, y), r = cv2.minEnclosingCircle(landmarks)
 
     if r*2 > iris_cand_max or r*2 < iris_cand_min:
