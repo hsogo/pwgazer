@@ -1251,7 +1251,7 @@ class offline_calibration_app(wx.Frame):
                                 (0,255,255), thickness=2)
 
         if self.cb_detect_face.GetValue():
-            dets = get_face_boxes(im, detector=self.parent.face_detector)
+            dets = get_face_boxes(im, detector=self.face_detector)
             
             for fidx in range(len(dets)):
                 if self.area_of_interest is None or self.area_of_interest.contains(dets[fidx]):
@@ -1285,7 +1285,7 @@ if __name__ == '__main__':
 
     if iris_detector is None:
         sys.exit()
-
+    
     if args.batch:
         if args.movie is None or args.output is None or args.cal_info is None:
             print('Movie, cal_info and output are required to run in batch mode.')
