@@ -60,11 +60,15 @@ def load_pwgazer_config(conf, args):
     if args.iris_detector is None:
         iris_detector = get_iris_detector(conf.iris_detector)
     else:
+        if conf.iris_detector != args.iris_detector:
+            print('info: iris filter is set to "{}" by commandline option ("{}" in configulration file).'.format(args.iris_detector, conf.iris_detector))
         iris_detector = get_iris_detector(args.iris_detector)
     
     if args.face_detector is None:
         face_detector = conf.face_detector
     else:
+        if conf.face_detector != args.face_detector:
+            print('info: face filter is set to "{}" by commandline option ("{}" in configulration file).'.format(args.face_detector, conf.face_detector))
         face_detector = args.face_detector
 
     return camera_param_file, face_model_file, filter_param_file, face_detector, iris_detector

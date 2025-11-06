@@ -11,8 +11,9 @@ try:
         refine_landmarks=True,
         min_detection_confidence=0.5,
         min_tracking_confidence=0.5)
+    has_mediapipe = True
 except:
-    pass
+    has_mediapipe = False
 
 supported_face_detectors = ['dlib', 'mediapipe']
 
@@ -115,6 +116,9 @@ def detect_face(frame, detector='mediapipe', aoi=None, scale=1.0):
             return False, None, None
     
     elif detector == 'mediapipe':
+        if not has_mediapipe:
+            msg = 'Mediapipe facemesh is required, but not installed.'
+            raise RuntimeError(msg)
         # Because facemesh returns landmarks directly, "scale" parameter is ignored.
         fm_results = facemesh.process(frame)
 
@@ -184,6 +188,9 @@ def get_face_boxes(frame, detector='mediapipe'):
         return detections
     
     elif detector == 'mediapipe':
+        if not has_mediapipe:
+            msg = 'Mediapipe facemesh is required, but not installed.'
+            raise RuntimeError(msg)
         fm_results = facemesh.process(frame)
         detection = []
         for fm in fm_results.multi_face_landmarks:
@@ -201,7 +208,6 @@ def get_face_boxes(frame, detector='mediapipe'):
     else:
         msg = '{} is not supported. available detectors are: {}'.format(detector, supported_face_detectors)
         raise ValueError(msg)
-
 
 
 class facedata(object):
@@ -352,7 +358,7 @@ class facedata(object):
         """
         diff = []
         for i, p in enumerate(self.model_points):
-            (p2d, jacobian) = cv2.projectPoints(
+            (p2d, _) = cv2.projectPoints(
                 p.reshape((1,3)), self.rotation_vector, self.translation_vector, self.camera_matrix, self.dist_coeffs)
             diff.append(np.linalg.norm(p2d - self.fitting_pts[i]))
         return diff
