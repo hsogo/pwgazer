@@ -3,17 +3,27 @@ import cv2
 import dlib
 from pathlib import Path
 from .util import get_euler_angles, get_rotation_matrix, rect
-try:
-    import mediapipe as mp
-    facemesh = mp.solutions.face_mesh.FaceMesh(
-        static_image_mode=False,
-        max_num_faces=3,
-        refine_landmarks=True,
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5)
-    has_mediapipe = True
-except:
-    has_mediapipe = False
+import warnings
+import importlib.util
+
+
+has_mediapipe = False
+if importlib.util.find_spec('mediapipe') is not None: # Is mediapipe installed?
+    try: # try to initialize mediapipe fascemesh
+        import mediapipe as mp
+        facemesh = mp.solutions.face_mesh.FaceMesh(
+            static_image_mode=False,
+            max_num_faces=3,
+            refine_landmarks=True,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5)
+        has_mediapipe = True
+    except:
+        msg = 'mediapipe is installed but cannot be initialized. If you are running on Windows, ' \
+            'installing a different version of mediapipe or installing the MSVC runtime may help.\n' \
+            'Alternatively, you can use the --face-detector=dlib option to use DLIB to detect face. ' \
+            'To use dlib permanently, change "FACE_DETECTOR=mediapipe" to "FACE_DETECTOR=dlib" in the configuration file.'
+        warnings.warn(msg)
 
 supported_face_detectors = ['dlib', 'mediapipe']
 
@@ -117,7 +127,7 @@ def detect_face(frame, detector='mediapipe', aoi=None, scale=1.0):
     
     elif detector == 'mediapipe':
         if not has_mediapipe:
-            msg = 'Mediapipe facemesh is required, but not installed.'
+            msg = 'Mediapipe is required, but not available.  Make sure that mediapipe is properly installed.'
             raise RuntimeError(msg)
         # Because facemesh returns landmarks directly, "scale" parameter is ignored.
         fm_results = facemesh.process(frame)
@@ -189,7 +199,7 @@ def get_face_boxes(frame, detector='mediapipe'):
     
     elif detector == 'mediapipe':
         if not has_mediapipe:
-            msg = 'Mediapipe facemesh is required, but not installed.'
+            msg = 'Mediapipe is required, but not available.  Make sure that mediapipe is properly installed.'
             raise RuntimeError(msg)
         fm_results = facemesh.process(frame)
         detection = []
