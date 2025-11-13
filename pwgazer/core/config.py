@@ -118,6 +118,8 @@ class config(object):
 
             if option == 'IRIS_DETECTOR':
                 self.iris_detector = s
+            if option == 'FACE_DETECTOR':
+                self.face_detector = s
             elif option == 'CALIBRATED_OUTPUT':
                 if s == 'False' or s == '0':
                     self.calibrated_output = False
