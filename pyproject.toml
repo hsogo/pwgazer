@@ -8,7 +8,7 @@ authors = [{name="Hiroyuki Sogo", email="hsogo12600@gmail.com>"},]
 maintainers = [{name="Hiroyuki Sogo", email="hsogo12600@gmail.com>"},]
 description = "Python-based Wide-angle GAZE Recorder"
 readme = {file = "README.md", content-type = "text/markdown"}
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dynamic = ["version"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -21,16 +21,27 @@ classifiers = [
 
 dependencies = [
     "numpy; sys_platform != 'win32'",
-    "numpy<2.0; sys_platform == 'win32'",
+    "numpy<2.0; sys_platform == 'win32' and python_version=='3.10'",
+    "numpy; sys_platform == 'win32' and python_version>'3.10'",
     "scipy",
     "wxpython",
     "dlib; sys_platform != 'win32'",
-    "dlib-binary; sys_platform == 'win32'",
+    "dlib-binary; sys_platform == 'win32' and python_version=='3.10'",
+    "dlib-bin; sys_platform == 'win32' and python_version>'3.10'",
     "onnxruntime; sys_platform != 'win32'",
     "onnxruntime==1.20.1; sys_platform == 'win32'",
     "opencv-python; sys_platform != 'win32'",
-    "opencv-python<4.12; sys_platform == 'win32'",
+    "opencv-python<4.12; sys_platform == 'win32' and python_version=='3.10'",
+    "opencv-python; sys_platform == 'win32' and python_version>'3.10'",
 ]
+
+[project.optional-dependencies]
+mediapipe = [
+    "mediapipe; sys_platform != 'win32'",
+    "mediapipe==0.10.8; sys_platform == 'win32' and python_version=='3.10'",
+    "mediapipe; sys_platform == 'win32' and python_version>'3.10'",
+]
+
 
 [project.urls]
 Homepage = "https://github.com/hsogo/pwgazer"
