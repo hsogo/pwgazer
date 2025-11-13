@@ -4,8 +4,13 @@ import pwgazer
 import numpy as np
 import warnings
 import wx
-
+import importlib.util
 from ..core.iris_detectors import get_iris_detector
+
+has_mediapipe = False
+if importlib.util.find_spec('mediapipe') is not None: # Is mediapipe installed?
+    has_mediapipe = True
+
 
 module_dir = Path(__file__).parent.parent
 
@@ -22,7 +27,10 @@ def load_pwgazer_config(conf, args):
 
     defaultconfig = appConfigDir/'tracker.cfg'
     if not defaultconfig.exists():
-        shutil.copy(module_dir/'app'/'tracker.cfg',defaultconfig)
+        if has_mediapipe:
+            shutil.copy(module_dir/'app'/'tracker.cfg',defaultconfig)
+        else:
+            shutil.copy(module_dir/'app'/'tracker_dlib.cfg',defaultconfig)
         print('info: default config file is created in {}.'.format(appConfigDir))
     conf.load_application_param(defaultconfig)
 
