@@ -4,6 +4,14 @@
 *pwgazer* is a python-based eye tracker for wide angle camera (such as web camera).
 Postion and pose of human faces in the camera coordinate, relative position of pupils in the face, and gaze position on the PC screen are recorded.
 
+### Install
+
+From version 1.1.0, pwgazer support face detection with mediapipe in addition to dlib.  To use mediapipe, install pwgazer with [mediapipe] option as follows.  On Windows, only Python 3.10-3.12 support the mediapipe option. 
+
+```
+pip install pwgazer[mediapipe]
+```
+
 ### Setup
 
 Before using pwgazer, camera calibration must be performed and screen layout must be set.
